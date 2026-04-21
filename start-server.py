@@ -2,6 +2,7 @@ import socket
 import threading
 import argparse
 from worker_sr import handle_client
+from constants import OPCODE_HANDSHAKE_INIT, HEADER_SIZE, SOCKET_RECV_BUFFER
 
 def server_start(host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -10,12 +11,12 @@ def server_start(host, port):
 
     try:
         while True:
-            data, client_addr = sock.recvfrom(1024)
+            data, client_addr = sock.recvfrom(SOCKET_RECV_BUFFER)
 
-            if len(data) >= 7:
+            if len(data) >= HEADER_SIZE:
                 opcode = data[0]
 
-                if opcode == 0:
+                if opcode == OPCODE_HANDSHAKE_INIT:
                     print(f"\n[Despachador] Nuevo cliente: {client_addr}. Creando worker...")
                     worker = threading.Thread(target=handle_client, args=(data, client_addr))
                     worker.daemon = True

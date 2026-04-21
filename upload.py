@@ -3,6 +3,11 @@ import struct
 import sys
 import argparse
 import os
+from constants import (
+    OPCODE_HANDSHAKE_INIT, OPCODE_DATA, OPCODE_ACK, OPCODE_EOF,
+    HEADER_SIZE, PACKET_PAYLOAD_SIZE, ACK_BUFFER_SIZE,
+    HANDSHAKE_TIMEOUT, MAX_HANDSHAKE_ATTEMPTS, INITIAL_ACK_SEQ
+)
 
 def start_upload(server_ip, server_port, file_name):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -11,21 +16,20 @@ def start_upload(server_ip, server_port, file_name):
 
     nombre_limpio = os.path.basename(file_name)
 
-    client_socket.settimeout(0.2)
-    max_attempts = 25
+    client_socket.settimeout(HANDSHAKE_TIMEOUT)
 
-    header = struct.pack('!BIH', 0, 0, len(nombre_limpio))
+    header = struct.pack('!BIH', OPCODE_HANDSHAKE_INIT, INITIAL_ACK_SEQ, len(nombre_limpio))
     ack_received = False
     attempts = 0
 
-    while not ack_received and attempts < max_attempts:
+    while not ack_received and attempts < MAX_HANDSHAKE_ATTEMPTS:
         client_socket.sendto(header + nombre_limpio.encode('utf-8'), server_address)
         while True:
             try:
-                response, new_server_addr = client_socket.recvfrom(1024)
-                ack_opcode, ack_seq, _ = struct.unpack('!BIH', response[:7])
+                response, new_server_addr = client_socket.recvfrom(ACK_BUFFER_SIZE)
+                ack_opcode, ack_seq, _ = struct.unpack('!BIH', response[:HEADER_SIZE])
 
-                if ack_opcode == 3 and ack_seq == 0:
+                if ack_opcode == OPCODE_ACK and ack_seq == INITIAL_ACK_SEQ:
                     server_address = new_server_addr
                     ack_received = True
                     print(f"Handshake OK. Empezando a subir al puerto privado: {server_address[1]}")
@@ -34,7 +38,7 @@ def start_upload(server_ip, server_port, file_name):
                     continue
             except socket.timeout:
                 attempts += 1
-                print(f"Timeout Handshake. Reintentando ({attempts}/{max_attempts})...")
+                print(f"Timeout Handshake. Reintentando ({attempts}/{MAX_HANDSHAKE_ATTEMPTS})...")
                 break
 
     if not ack_received:
@@ -44,23 +48,23 @@ def start_upload(server_ip, server_port, file_name):
     sequence_number = 1
     with open(file_name, 'rb') as file:
         while True:
-            block = file.read(1024)
+            block = file.read(PACKET_PAYLOAD_SIZE)
             if not block:
                 break
 
-            data_header = struct.pack('!BIH', 2, sequence_number, len(block))
+            data_header = struct.pack('!BIH', OPCODE_DATA, sequence_number, len(block))
             packet = data_header + block
             ack_received = False
             attempts = 0
 
-            while not ack_received and attempts < max_attempts:
+            while not ack_received and attempts < MAX_HANDSHAKE_ATTEMPTS:
                 client_socket.sendto(packet, server_address)
                 while True:
                     try:
-                        ack_pack, _ = client_socket.recvfrom(1024)
-                        ack_opcode, ack_seq, _ = struct.unpack('!BIH', ack_pack[:7])
+                        ack_pack, _ = client_socket.recvfrom(ACK_BUFFER_SIZE)
+                        ack_opcode, ack_seq, _ = struct.unpack('!BIH', ack_pack[:HEADER_SIZE])
 
-                        if ack_opcode == 3 and ack_seq == sequence_number:
+                        if ack_opcode == OPCODE_ACK and ack_seq == sequence_number:
                             print(f"Bloque {sequence_number} enviado y confirmado.")
                             ack_received = True
                             break
@@ -68,7 +72,7 @@ def start_upload(server_ip, server_port, file_name):
                             continue
                     except socket.timeout:
                         attempts += 1
-                        print(f"Timeout! Reenviando bloque {sequence_number} ({attempts}/{max_attempts})...")
+                        print(f"Timeout! Reenviando bloque {sequence_number} ({attempts}/{MAX_HANDSHAKE_ATTEMPTS})...")
                         break
 
             if not ack_received:
@@ -77,19 +81,19 @@ def start_upload(server_ip, server_port, file_name):
 
             sequence_number += 1
 
-    final_header = struct.pack('!BIH', 7, sequence_number, 0)
+    final_header = struct.pack('!BIH', OPCODE_EOF, sequence_number, 0)
     ack_received = False
     attempts = 0
 
     print("Iniciando cierre de conexion...")
-    while not ack_received and attempts < max_attempts:
+    while not ack_received and attempts < MAX_HANDSHAKE_ATTEMPTS:
         client_socket.sendto(final_header, server_address)
         while True:
             try:
-                ack_pack, _ = client_socket.recvfrom(1024)
-                ack_opcode, ack_seq, _ = struct.unpack('!BIH', ack_pack[:7])
+                ack_pack, _ = client_socket.recvfrom(ACK_BUFFER_SIZE)
+                ack_opcode, ack_seq, _ = struct.unpack('!BIH', ack_pack[:HEADER_SIZE])
 
-                if ack_opcode == 3 and ack_seq == sequence_number:
+                if ack_opcode == OPCODE_ACK and ack_seq == sequence_number:
                     ack_received = True
                     break
                 else:
