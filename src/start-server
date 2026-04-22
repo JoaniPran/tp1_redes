@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+import argparse
+import sys
+
+from lib.helpers import setup_logger
+from lib.server import ServerDispatcher
+
+
+def main():
+    parser = argparse.ArgumentParser(description='UDP File Server')
+
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
+    verbosity.add_argument('-q', '--quiet', action='store_true', help='Decrease output verbosity')
+
+    parser.add_argument('-H', '--host', type=str, default='0.0.0.0', help='Listening IP address')
+    parser.add_argument('-p', '--port', type=int, default=8080, help='Listening port')
+    parser.add_argument('-s', '--storage', type=str, default='./server_storage', help='Destination storage directoryo')
+
+    args = parser.parse_args()
+    logger = setup_logger(args.verbose, args.quiet, "Server")
+
+    try:
+        servidor = ServerDispatcher(args.host, args.port, args.storage, logger)
+        servidor.start()
+    except KeyboardInterrupt:
+        logger.info("Shutting down server safely...")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
