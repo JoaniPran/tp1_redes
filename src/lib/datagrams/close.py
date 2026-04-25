@@ -1,3 +1,4 @@
+from lib.constants import OPCODE_EOF
 from lib.datagrams.datagram import Datagram
 
 
@@ -6,7 +7,7 @@ class CloseDatagram(Datagram):
         self.seq_num = seq_num
 
     def to_bytes(self) -> bytes:
-        return self.pack_header(7, self.seq_num, 0)
+        return self.pack_header(OPCODE_EOF, self.seq_num, 0)
 
     @staticmethod
     def from_bytes(data: bytes) -> 'Datagram':

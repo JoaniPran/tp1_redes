@@ -1,4 +1,5 @@
 import socket
+from lib.constants import PACKET_PAYLOAD_SIZE, ACK_BUFFER_SIZE
 from lib.protocols.base import TransferStrategy
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.data import DataDatagram
@@ -13,7 +14,7 @@ class StopAndWaitStrategy(TransferStrategy):
 
         with open(local_path, "rb") as file:
             while True:
-                block = file.read(1024)
+                block = file.read(PACKET_PAYLOAD_SIZE)
                 if not block:
                     break
 
@@ -25,7 +26,7 @@ class StopAndWaitStrategy(TransferStrategy):
                 while not ack_received and attempts < self.max_attempts:
                     self.sock.sendto(packet_bytes, self.server_addr)
                     try:
-                        data, _ = self.sock.recvfrom(1024)
+                        data, _ = self.sock.recvfrom(ACK_BUFFER_SIZE)
                         response = Datagram.from_bytes(data)
 
                         if isinstance(response, AckDatagram) and response.seq_num == seq_num:

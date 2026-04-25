@@ -3,6 +3,9 @@ import threading
 import os
 import logging
 
+from lib.constants import (
+    INITIAL_SEQ, SOCKET_RECV_BUFFER, WORKER_SOCKET_TIMEOUT, TEMP_FILE_PREFIX
+)
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.data import DataDatagram
@@ -24,7 +27,7 @@ class ServerDispatcher:
         self.logger.info(f"Dispatcher listening on {self.addr}. Storage: {self.storage}")
 
         while True:
-            data, client_addr = self.sock.recvfrom(2048)
+            data, client_addr = self.sock.recvfrom(SOCKET_RECV_BUFFER)
 
             try:
                 packet = Datagram.from_bytes(data)
@@ -49,11 +52,11 @@ class Worker:
 
         safe_name = os.path.basename(file_name)
         self.final_path = os.path.join(storage, safe_name)
-        self.temp_path = os.path.join(storage, f".tmp_{client_addr[1]}_{safe_name}")
+        self.temp_path = os.path.join(storage, f"{TEMP_FILE_PREFIX}{client_addr[1]}_{safe_name}")
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(('', 0))
-        self.sock.settimeout(15.0)
+        self.sock.settimeout(WORKER_SOCKET_TIMEOUT)
 
     def run(self):
         local_port = self.sock.getsockname()[1]
@@ -62,13 +65,13 @@ class Worker:
         ack_hs = AckDatagram(0)
         self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
 
-        expected_seq = 1
+        expected_seq = INITIAL_SEQ
         out_of_order_buffer = {}
         target_file = None
 
         try:
             while True:
-                data, _ = self.sock.recvfrom(2048)
+                data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
                 packet = Datagram.from_bytes(data)
 
                 if isinstance(packet, DataDatagram):

@@ -1,3 +1,4 @@
+from lib.constants import OPCODE_HANDSHAKE_INIT, INITIAL_ACK_SEQ
 from lib.datagrams.datagram import Datagram
 
 
@@ -7,7 +8,7 @@ class HandshakeDatagram(Datagram):
 
     def to_bytes(self) -> bytes:
         name_bytes = self.file_name.encode('utf-8')
-        header = self.pack_header(0, 0, len(name_bytes))
+        header = self.pack_header(OPCODE_HANDSHAKE_INIT, INITIAL_ACK_SEQ, len(name_bytes))
         return header + name_bytes
 
     @staticmethod

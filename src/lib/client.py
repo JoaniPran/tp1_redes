@@ -1,6 +1,11 @@
 import socket
 import logging
 
+from lib.constants import (
+    OPCODE_HANDSHAKE_INIT, OPCODE_ACK, OPCODE_EOF, OPCODE_DATA,
+    HANDSHAKE_TIMEOUT, MAX_HANDSHAKE_ATTEMPTS, INITIAL_SEQ, INITIAL_ACK_SEQ,
+    SOCKET_RECV_BUFFER, ACK_BUFFER_SIZE
+)
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.ack import AckDatagram
@@ -15,8 +20,8 @@ class Uploader:
         self.protocol_name = protocol_name
         self.logger = logger
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.max_attempts = 25
-        self.next_seq_num = 1
+        self.max_attempts = MAX_HANDSHAKE_ATTEMPTS
+        self.next_seq_num = INITIAL_SEQ
 
     def upload_file(self, local_path: str, remote_name: str):
         self._handshake_phase(remote_name)
@@ -34,7 +39,7 @@ class Uploader:
 
     def _handshake_phase(self, remote_name: str):
         self.logger.debug("Starting handshake...")
-        self.sock.settimeout(0.2)
+        self.sock.settimeout(HANDSHAKE_TIMEOUT)
 
         hs_packet = HandshakeDatagram(remote_name)
         bytes_to_send = hs_packet.to_bytes()
@@ -43,10 +48,10 @@ class Uploader:
         while attempts < self.max_attempts:
             self.sock.sendto(bytes_to_send, self.server_addr)
             try:
-                data, new_addr = self.sock.recvfrom(1024)
+                data, new_addr = self.sock.recvfrom(ACK_BUFFER_SIZE)
                 response = Datagram.from_bytes(data)
 
-                if isinstance(response, AckDatagram) and response.seq_num == 0:
+                if isinstance(response, AckDatagram) and response.seq_num == INITIAL_ACK_SEQ:
                     self.server_addr = new_addr
                     self.logger.debug(f"Handshake successful. Assigned Worker: {new_addr}")
                     return
@@ -59,7 +64,7 @@ class Uploader:
     def _teardown_phase(self):
         self.logger.debug("Starting Secure Teardown...")
         self.sock.setblocking(True)
-        self.sock.settimeout(0.2)
+        self.sock.settimeout(HANDSHAKE_TIMEOUT)
 
         close_packet = CloseDatagram(self.next_seq_num)
         close_bytes = close_packet.to_bytes()
@@ -68,7 +73,7 @@ class Uploader:
         while attempts < self.max_attempts:
             self.sock.sendto(close_bytes, self.server_addr)
             try:
-                data, _ = self.sock.recvfrom(2048)
+                data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
                 response = Datagram.from_bytes(data)
 
                 if isinstance(response, AckDatagram) and response.seq_num == self.next_seq_num:

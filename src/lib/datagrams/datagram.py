@@ -1,6 +1,9 @@
 import struct
 
 from abc import ABC, abstractmethod
+from lib.constants import (
+    OPCODE_HANDSHAKE_INIT, OPCODE_DATA, OPCODE_ACK, OPCODE_EOF
+)
 
 
 class Datagram(ABC):
@@ -27,18 +30,17 @@ class Datagram(ABC):
 
         opcode = data[0]
 
-        match opcode:
-            case 0:
-                from lib.datagrams.handshake import HandshakeDatagram
-                return HandshakeDatagram.from_bytes(data)
-            case 2:
-                from lib.datagrams.data import DataDatagram
-                return DataDatagram.from_bytes(data)
-            case 3:
-                from lib.datagrams.ack import AckDatagram
-                return AckDatagram.from_bytes(data)
-            case 7:
-                from lib.datagrams.close import CloseDatagram
-                return CloseDatagram.from_bytes(data)
-            case _:
-                raise ValueError("Unknown opcode")
+        if opcode == OPCODE_HANDSHAKE_INIT:
+            from lib.datagrams.handshake import HandshakeDatagram
+            return HandshakeDatagram.from_bytes(data)
+        elif opcode == OPCODE_DATA:
+            from lib.datagrams.data import DataDatagram
+            return DataDatagram.from_bytes(data)
+        elif opcode == OPCODE_ACK:
+            from lib.datagrams.ack import AckDatagram
+            return AckDatagram.from_bytes(data)
+        elif opcode == OPCODE_EOF:
+            from lib.datagrams.close import CloseDatagram
+            return CloseDatagram.from_bytes(data)
+        else:
+            raise ValueError("Unknown opcode")
