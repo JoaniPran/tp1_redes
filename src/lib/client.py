@@ -1,5 +1,6 @@
 import socket
 import logging
+import os
 
 from lib.constants import (
     OPCODE_HANDSHAKE_INIT, OPCODE_ACK, OPCODE_EOF, OPCODE_DATA,
@@ -24,7 +25,8 @@ class Uploader:
         self.next_seq_num = INITIAL_SEQ
 
     def upload_file(self, local_path: str, remote_name: str):
-        self._handshake_phase(remote_name)
+        file_size  = os.path.getsize(self.local_path) if self.local_path else 0
+        self._handshake_phase(remote_name, file_size)
 
         if self.protocol_name == "sr":
             strategy = SelectiveRepeatStrategy(self.sock, self.server_addr, self.logger)
@@ -37,11 +39,11 @@ class Uploader:
         self._teardown_phase()
         self.sock.close()
 
-    def _handshake_phase(self, remote_name: str):
+    def _handshake_phase(self, remote_name: str, file_size: int):
         self.logger.debug("Starting handshake...")
         self.sock.settimeout(HANDSHAKE_TIMEOUT)
 
-        hs_packet = HandshakeDatagram(remote_name)
+        hs_packet = HandshakeDatagram(remote_name, file_size)
         bytes_to_send = hs_packet.to_bytes()
 
         attempts = 0

@@ -4,7 +4,7 @@ import os
 import logging
 
 from lib.constants import (
-    INITIAL_SEQ, SOCKET_RECV_BUFFER, WORKER_SOCKET_TIMEOUT, TEMP_FILE_PREFIX
+    INITIAL_SEQ, MAX_FILE_SIZE, SOCKET_RECV_BUFFER, WORKER_SOCKET_TIMEOUT, TEMP_FILE_PREFIX
 )
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
@@ -31,10 +31,15 @@ class ServerDispatcher:
 
             try:
                 packet = Datagram.from_bytes(data)
-
                 if isinstance(packet, HandshakeDatagram):
                     self.logger.info(f"New Handshake from {client_addr} for file: {packet.file_name}")
-                    worker = Worker(client_addr, packet.file_name, self.storage, self.logger)
+
+                    if packet.file_size > MAX_FILE_SIZE:
+                        self.logger.warning(f"File size {packet.file_size} exceeds maximum allowed {MAX_FILE_SIZE}. Ignoring handshake.")
+                        continue # TODO: MANEJO DE ERRORES -> opcode de error y mensaje de error
+
+
+                    worker = Worker(client_addr, packet.file_name, packet.protocol, self.storage, self.logger)
                     worker_thread = threading.Thread(target=worker.run)
                     worker_thread.daemon = True
                     worker_thread.start()
@@ -46,10 +51,11 @@ class ServerDispatcher:
 
 
 class Worker:
-    def __init__(self, client_addr: tuple, file_name: str, storage: str, logger: logging.Logger):
+    def __init__(self, client_addr: tuple, file_name: str, protocol: str, storage: str, logger: logging.Logger):
         self.client_addr = client_addr
         self.logger = logger
 
+        self.protocol = protocol
         safe_name = os.path.basename(file_name)
         self.final_path = os.path.join(storage, safe_name)
         self.temp_path = os.path.join(storage, f"{TEMP_FILE_PREFIX}{client_addr[1]}_{safe_name}")
@@ -64,6 +70,20 @@ class Worker:
 
         ack_hs = AckDatagram(0)
         self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
+
+        if self.protocol == "sw":
+            self.logger.debug(f"Using Stop-and-Wait protocol for client {self.client_addr}")
+            strategy = StopAndWaitStrategy(self.sock, self.client_addr, self.logger)
+        elif self.protocol == "sr":
+            self.logger.debug(f"Using Selective Repeat protocol for client {self.client_addr}")
+            strategy = SelectiveRepeatStrategy(self.sock, self.client_addr, self.logger)
+        else:
+            self.logger.error(f"Unknown protocol '{self.protocol}' for client {self.client_addr}")
+            self.sock.close() # TODO: MANEJO DE ERRORES -> opcode de error y mensaje de error
+        
+        strategy.transfer(self.temp_path) # Manejo de errores de esto tmb
+        
+
 
         expected_seq = INITIAL_SEQ
         out_of_order_buffer = {}
