@@ -11,8 +11,8 @@ from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.close import CloseDatagram
-from lib.protocols.stop_and_wait import StopAndWaitStrategy
-from lib.protocols.selective_repeat import SelectiveRepeatStrategy
+from lib.protocol_sender.stop_and_wait import StopAndWaitStrategy
+from lib.protocol_sender.selective_repeat import SelectiveRepeatStrategy
 
 
 class Uploader:

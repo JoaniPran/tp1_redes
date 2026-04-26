@@ -5,7 +5,7 @@ from lib.constants import (
     SELECT_TIMEOUT, CWND_INITIAL, CWND_MAX, CWND_INCREMENT,
     CWND_BACKOFF, CWND_MIN
 )
-from lib.protocols.base import TransferStrategy
+from lib.protocol_sender.base import TransferStrategy
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.data import DataDatagram
 from lib.datagrams.ack import AckDatagram

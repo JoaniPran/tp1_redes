@@ -1,6 +1,6 @@
 import socket
 from lib.constants import PACKET_PAYLOAD_SIZE, ACK_BUFFER_SIZE
-from lib.protocols.base import TransferStrategy
+from lib.protocol_sender.base import TransferStrategy
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.data import DataDatagram
 from lib.datagrams.ack import AckDatagram
