@@ -6,12 +6,13 @@ from abc import ABC, abstractmethod
 class Datagram(ABC):
     HEADER_FORMAT = '!BIH'
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
-
+    
+    #El "Empaquetador"
     @staticmethod
     def pack_header(opcode: int, seq_num: int, payload_size: int) -> bytes:
         return struct.pack(Datagram.HEADER_FORMAT,
                            opcode, seq_num, payload_size)
-
+    #El "Abridor de Cajas"
     @staticmethod
     def unpack_header(data: bytes):
         return struct.unpack(Datagram.HEADER_FORMAT, data[:Datagram.HEADER_SIZE])
@@ -31,6 +32,9 @@ class Datagram(ABC):
             case 0:
                 from lib.datagrams.handshake import HandshakeDatagram
                 return HandshakeDatagram.from_bytes(data)
+            case 1:
+                from lib.datagrams.donwload import DownloadRequestDatagram
+                return DownloadRequestDatagram.from_bytes(data)
             case 2:
                 from lib.datagrams.data import DataDatagram
                 return DataDatagram.from_bytes(data)

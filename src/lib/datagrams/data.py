@@ -8,7 +8,7 @@ class DataDatagram(Datagram):
 
     def to_bytes(self) -> bytes:
         header = Datagram.pack_header(2, self.seq_num, len(self.payload))
-        return header + self.payload
+        return header + self.payload    #recibe estructura binaria
 
     @staticmethod
     def from_bytes(data: bytes) -> 'Datagram':

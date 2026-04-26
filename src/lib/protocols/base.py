@@ -9,7 +9,7 @@ class TransferStrategy(ABC):
         self.server_addr = server_addr
         self.logger = logger
         self.max_attempts = 25
-        self.timeout_limit = 0.5
+        self.timeout_limit = 5.0
 
     @abstractmethod
     def transfer(self, local_path: str, start_seq_num: int) -> int:

@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+# Importamos lo necesario (asumiendo que crearás la clase Downloader)
+from lib.helpers import setup_logger
+from lib.clients.downloader import Downloader
+
+def main():
+    parser = argparse.ArgumentParser(description='File download client')
+
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument('-v', '--verbose', action='store_true', help='Ver todo')
+    verbosity.add_argument('-q', '--quiet', action='store_true', help='Solo errores')
+
+    parser.add_argument('-H', '--host', type=str, required=True, help='IP del servidor')
+    parser.add_argument('-p', '--port', type=int, required=True, help='Puerto del servidor')
+    parser.add_argument('-n', '--name', type=str, required=True, help='Nombre del archivo en el servidor')
+    parser.add_argument('-d', '--dest', type=str, required=True, help='Donde guardarlo localmente')
+    parser.add_argument('-r', '--protocol', type=str, choices=['sw', 'sr'], required=True, help='sw o sr')
+
+    args = parser.parse_args()
+    logger = setup_logger(args.verbose, args.quiet, "Download")
+
+    logger.info(f"Iniciando DOWNLOAD de '{args.name}' desde {args.host}:{args.port}")
+
+    try:
+        # Instanciamos el Downloader (Clase que crearemos a continuación)
+        cliente = Downloader(args.host, args.port, args.protocol, logger)
+        cliente.download_file(args.name, args.dest)
+        logger.info("Descarga finalizada con éxito.")
+    except Exception as e:
+        logger.error(f"Error crítico en la descarga: {e}")
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()

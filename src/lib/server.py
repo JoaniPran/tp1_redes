@@ -8,6 +8,8 @@ from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.data import DataDatagram
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.close import CloseDatagram
+from lib.datagrams.donwload import DownloadRequestDatagram
+from lib.downloadWorker import DownloadWorker
 
 
 class ServerDispatcher:
@@ -24,14 +26,25 @@ class ServerDispatcher:
         self.logger.info(f"Dispatcher listening on {self.addr}. Storage: {self.storage}")
 
         while True:
-            data, client_addr = self.sock.recvfrom(2048)
-
+            data, client_addr = self.sock.recvfrom(2048) #El servidor se queda "congelado" en esta línea hasta que llegue un paquete UDP. El 2048 es el tamaño máximo de bytes que está dispuesto a recibir de un solo golpe (el buffer).
             try:
                 packet = Datagram.from_bytes(data)
+                """Data: Son los bytes puros (binario) que envió el cliente. Es información "cruda", 
+                el servidor aún no sabe qué significan.
+                client_addr: Es una tupla (IP, Puerto) del cliente. Esto es fundamental 
+                en UDP porque, como no hay una conexión fija, el servidor 
+                necesita esta dirección para saber a quién responderle después."""
 
                 if isinstance(packet, HandshakeDatagram):
                     self.logger.info(f"New Handshake from {client_addr} for file: {packet.file_name}")
                     worker = Worker(client_addr, packet.file_name, self.storage, self.logger)
+                    worker_thread = threading.Thread(target=worker.run)
+                    worker_thread.daemon = True                 
+                    worker_thread.start()
+                elif isinstance(packet, DownloadRequestDatagram):
+                    self.logger.info(f"Descarga detectada desde {client_addr} para {packet.file_name}")
+                    # Lanzamos el nuevo worker que creamos antes
+                    worker = DownloadWorker(client_addr, packet.file_name, self.storage, self.logger)
                     worker_thread = threading.Thread(target=worker.run)
                     worker_thread.daemon = True
                     worker_thread.start()
@@ -52,7 +65,10 @@ class Worker:
         self.temp_path = os.path.join(storage, f".tmp_{client_addr[1]}_{safe_name}")
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(('', 0))
+        self.sock.bind(('', 0))     
+        """Worker: Se crea y hace self.sock.bind(('', 0)). 
+        Ese 0 le dice al Sistema Operativo: 
+        "Dame cualquier puerto que esté libre" (ejemplo: el 54321)."""
         self.sock.settimeout(15.0)
 
     def run(self):
