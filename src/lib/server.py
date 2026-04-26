@@ -15,12 +15,12 @@ class ServerDispatcher:
         self.addr = (host, port)
         self.storage = storage
         self.logger = logger
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #Crea un socket UDP, SOCK_DGRAM->UDP, INET se refiere a IPv4,  guardamos la familiade los ips que podemos utulizar y el protocolo de la coneccion que vamos a hacer 
 
         os.makedirs(self.storage, exist_ok=True)
 
     def start(self):
-        self.sock.bind(self.addr)
+        self.sock.bind(self.addr) # pone el servidor a escuchar en
         self.logger.info(f"Dispatcher listening on {self.addr}. Storage: {self.storage}")
 
         while True:
