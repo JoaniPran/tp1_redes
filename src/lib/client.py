@@ -1,5 +1,6 @@
 import socket
 import logging
+import os
 
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
@@ -7,6 +8,7 @@ from lib.datagrams.ack import AckDatagram
 from lib.datagrams.close import CloseDatagram
 from lib.protocols.stop_and_wait import StopAndWaitStrategy
 from lib.protocols.selective_repeat import SelectiveRepeatStrategy
+from lib.constants import MAX_FILE_SIZE, MAX_NETWORK_ATTEMPTS
 
 
 class Uploader:
@@ -19,7 +21,12 @@ class Uploader:
         self.next_seq_num = 1
 
     def upload_file(self, local_path: str, remote_name: str):
-        self._handshake_phase(remote_name)
+        file_size = os.path.getsize(local_path)
+        if file_size > MAX_FILE_SIZE:
+            self.logger.error(f"File size ({file_size} bytes) exceeds the 20MB limit.")
+            raise ValueError("File size exceeds the 20MB limit.")
+
+        self._handshake_phase(remote_name, file_size)
 
         if self.protocol_name == "sr":
             strategy = SelectiveRepeatStrategy(self.sock, self.server_addr, self.logger)
@@ -32,11 +39,11 @@ class Uploader:
         self._teardown_phase()
         self.sock.close()
 
-    def _handshake_phase(self, remote_name: str):
+    def _handshake_phase(self, remote_name: str, file_size: int):
         self.logger.debug("Starting handshake...")
         self.sock.settimeout(0.2)
 
-        hs_packet = HandshakeDatagram(remote_name)
+        hs_packet = HandshakeDatagram(remote_name, self.protocol_name, file_size)
         bytes_to_send = hs_packet.to_bytes()
 
         attempts = 0

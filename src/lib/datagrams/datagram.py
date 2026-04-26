@@ -40,5 +40,8 @@ class Datagram(ABC):
             case 7:
                 from lib.datagrams.close import CloseDatagram
                 return CloseDatagram.from_bytes(data)
+            case 4:
+                from lib.datagrams.error import ErrorDatagram
+                return ErrorDatagram.from_bytes(data)
             case _:
                 raise ValueError("Unknown opcode")

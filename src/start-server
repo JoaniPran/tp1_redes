@@ -3,8 +3,7 @@ import argparse
 import sys
 
 from lib.helpers import setup_logger
-from lib.server import ServerDispatcher
-
+from lib.server.dispatcher import ServerDispatcher
 
 def main():
     parser = argparse.ArgumentParser(description='UDP File Server')
