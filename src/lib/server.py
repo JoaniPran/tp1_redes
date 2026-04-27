@@ -46,8 +46,8 @@ class ServerDispatcher:
                     # Lanzamos el nuevo worker que creamos antes
                     worker = DownloadWorker(client_addr, packet.file_name, self.storage, self.logger)
                     worker_thread = threading.Thread(target=worker.run)
-                    worker_thread.daemon = True
-                    worker_thread.start()
+                    worker_thread.daemon = True # hilo muere inmediatamente si el programa principal (el servidor) se cierra.
+                    worker_thread.start() #worker_thread.start(), el Worker empieza a correr su método run() en un hilo separado.
                 else:
                     self.logger.warning(f"Ignored packet on port {self.addr}: Unexpected Opcode.")
 

@@ -3,7 +3,7 @@ import argparse
 import sys
 
 from lib.helpers import setup_logger, check_file
-from lib.clients import Uploader
+from lib.clients.client import Uploader
 
 
 def main():
