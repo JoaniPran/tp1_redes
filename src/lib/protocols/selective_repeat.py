@@ -5,6 +5,12 @@ from lib.datagrams.datagram import Datagram
 from lib.datagrams.data import DataDatagram
 from lib.datagrams.ack import AckDatagram
 
+from lib.constants import PACKET_PAYLOAD_SIZE
+from lib.constants import SOCKET_RECV_BUFFER
+from lib.constants import CWMD_INITIAL
+from lib.constants import CWMD_MAX
+from lib.constants import CWMD_MIN
+from lib.constants import SELECT_TIMEOUT
 
 class SelectiveRepeatStrategy(TransferStrategy):
     def transfer(self, local_path: str, seq_num: int) -> int:
@@ -15,15 +21,15 @@ class SelectiveRepeatStrategy(TransferStrategy):
         inflight_packets = {}
         eof_reached = False
 
-        cwnd = 2.0
-        max_cwnd = 20.0
+        cwnd = CWMD_INITIAL
+        max_cwnd = CWMD_MAX
         ack_streak = 0
 
         with open(local_path, "rb") as file:
             while not eof_reached or len(inflight_packets) > 0:
-                readable, _, _ = select.select([self.sock], [], [], 0.01)
+                readable, _, _ = select.select([self.sock], [], [], SELECT_TIMEOUT)
                 if readable:
-                    data, _ = self.sock.recvfrom(2048)
+                    data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
                     if len(data) >= 7:
                         ack = Datagram.from_bytes(data)
 
@@ -33,7 +39,7 @@ class SelectiveRepeatStrategy(TransferStrategy):
 
                                 ack_streak += 1
                                 if ack_streak >= int(cwnd):
-                                    cwnd = min(cwnd + 1.0, max_cwnd)
+                                    cwnd = min(cwnd + CWMD_MIN, max_cwnd)
                                     ack_streak = 0
                                     self.logger.debug(f"AIMD: Window increased to {int(cwnd)}")
 
@@ -42,7 +48,7 @@ class SelectiveRepeatStrategy(TransferStrategy):
                                     base_seq += 1
 
                 while seq_num < base_seq + int(cwnd) and not eof_reached:
-                    block = file.read(1024)
+                    block = file.read(PACKET_PAYLOAD_SIZE)
                     if not block:
                         eof_reached = True
                         break
@@ -69,7 +75,7 @@ class SelectiveRepeatStrategy(TransferStrategy):
                         timeout_occurred = True
 
                 if timeout_occurred:
-                    cwnd = max(cwnd / 2.0, 1.0)
+                    cwnd = max(cwnd / CWMD_INITIAL, CWMD_MIN)
                     ack_streak = 0
                     self.logger.debug(f"AIMD: Congestion detected. Window decreased to {int(cwnd)}")
 

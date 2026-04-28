@@ -8,18 +8,12 @@ from lib.datagrams.ack import AckDatagram
 from lib.datagrams.close import CloseDatagram
 from lib.protocols.stop_and_wait import StopAndWaitStrategy
 from lib.protocols.selective_repeat import SelectiveRepeatStrategy
-from lib.constants import MAX_FILE_SIZE, MAX_NETWORK_ATTEMPTS
+from lib.strategies_clients.base_client import ClientStrategy
+
+from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER
 
 
-class Uploader:
-    def __init__(self, host: str, port: int, protocol_name: str, logger: logging.Logger):
-        self.server_addr = (host, port)
-        self.protocol_name = protocol_name
-        self.logger = logger
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.max_attempts = 25
-        self.next_seq_num = 1
-
+class ClientUploader(ClientStrategy):
     def upload_file(self, local_path: str, remote_name: str):
         file_size = os.path.getsize(local_path)
         if file_size > MAX_FILE_SIZE:
@@ -50,7 +44,7 @@ class Uploader:
         while attempts < self.max_attempts:
             self.sock.sendto(bytes_to_send, self.server_addr)
             try:
-                data, new_addr = self.sock.recvfrom(1024)
+                data, new_addr = self.sock.recvfrom(PACKET_PAYLOAD_SIZE)
                 response = Datagram.from_bytes(data)
 
                 if isinstance(response, AckDatagram) and response.seq_num == 0:
@@ -75,7 +69,7 @@ class Uploader:
         while attempts < self.max_attempts:
             self.sock.sendto(close_bytes, self.server_addr)
             try:
-                data, _ = self.sock.recvfrom(2048)
+                data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
                 response = Datagram.from_bytes(data)
 
                 if isinstance(response, AckDatagram) and response.seq_num == self.next_seq_num:

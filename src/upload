@@ -3,7 +3,7 @@ import argparse
 import sys
 
 from lib.helpers import setup_logger, check_file
-from lib.client import Uploader
+from lib.strategies_clients.clientUpload import ClientUploader
 
 
 def main():
@@ -28,7 +28,7 @@ def main():
     logger.info(f"Starting UPLOAD of '{args.src}' to {args.host}:{args.port} using {args.protocol.upper()}")
 
     try:
-        cliente = Uploader(args.host, args.port, args.protocol, logger)
+        cliente = ClientUploader(args.host, args.port, args.protocol, logger)
         cliente.upload_file(args.src, args.name)
         logger.info("Transfer completed successfully.")
     except Exception as e:

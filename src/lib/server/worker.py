@@ -1,12 +1,16 @@
 import socket
 import os
+
+import logging
 from lib.datagrams.ack import AckDatagram
+from lib.datagrams.handshake import HandshakeDatagram
+from lib.constants import WORKER_SOCKET_TIMEOUT
 from lib.server.strategies.stop_and_wait import StopAndWaitReceiver
 from lib.server.strategies.selective_repeat import SelectiveRepeatReceiver
 
 
 class Worker:
-    def __init__(self, client_addr: tuple, hs_packet: HandshakeDatagram, storage: str, logger: logging.Loggerr):
+    def __init__(self, client_addr: tuple, hs_packet: HandshakeDatagram, storage: str, logger: logging.Logger):
         self.client_addr = client_addr
         self.hs = hs_packet
         self.logger = logger

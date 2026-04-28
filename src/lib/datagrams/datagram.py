@@ -31,6 +31,9 @@ class Datagram(ABC):
             case 0:
                 from lib.datagrams.handshake import HandshakeDatagram
                 return HandshakeDatagram.from_bytes(data)
+            case 1:
+                from lib.datagrams.donwload import DownloadRequestDatagram
+                return DownloadRequestDatagram.from_bytes(data)
             case 2:
                 from lib.datagrams.data import DataDatagram
                 return DataDatagram.from_bytes(data)

@@ -7,6 +7,9 @@ from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.error import ErrorDatagram
 from lib.constants import MAX_FILE_SIZE, SOCKET_RECV_BUFFER
 from lib.server.worker import Worker
+from lib.server.downloadWorker import DownloadWorker
+from lib.datagrams.donwload import DownloadRequestDatagram
+
 
 class ServerDispatcher:
     def __init__(self, host: str, port: int, storage: str, logger):
@@ -36,6 +39,13 @@ class ServerDispatcher:
                     worker_thread.daemon = True
                     worker_thread.start()
 
+                elif isinstance(packet, DownloadRequestDatagram):
+                    self.logger.info(f"Descarga detectada desde {client_addr} para {packet.file_name}")
+                    # Lanzamos el nuevo worker que creamos antes
+                    worker = DownloadWorker(client_addr, packet.file_name, self.storage, self.logger)
+                    worker_thread = threading.Thread(target=worker.run)
+                    worker_thread.daemon = True # hilo muere inmediatamente si el programa principal (el servidor) se cierra.
+                    worker_thread.start() #worker_thread.start(), el Worker empieza a correr su método run() en un hilo separado.
                 else:
                     self.logger.warning(f"Ignored packet on port {self.addr}: Unexpected Opcode.")
 

@@ -1,13 +1,13 @@
 from lib.datagrams.datagram import Datagram
 
-
+from lib.constants import OPCODE_DATA
 class DataDatagram(Datagram):
     def __init__(self, seq_num: int, payload: bytes):
         self.seq_num = seq_num
         self.payload = payload
 
     def to_bytes(self) -> bytes:
-        header = Datagram.pack_header(2, self.seq_num, len(self.payload))
+        header = Datagram.pack_header(OPCODE_DATA, self.seq_num, len(self.payload))
         return header + self.payload
 
     @staticmethod

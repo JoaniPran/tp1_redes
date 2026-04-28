@@ -1,12 +1,12 @@
 from lib.datagrams.datagram import Datagram
-
+from lib.constants import OPCODE_ERROR
 class ErrorDatagram(Datagram):
     def __init__(self, message: str):
         self.message = message
 
     def to_bytes(self) -> bytes:
         message_bytes = self.message.encode('utf-8')
-        header = self.pack_header(4, 0, len(message_bytes))
+        header = self.pack_header(OPCODE_ERROR, 0, len(message_bytes))
         return header + message_bytes
 
     @staticmethod
