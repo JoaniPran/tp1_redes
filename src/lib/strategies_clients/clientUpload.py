@@ -10,7 +10,7 @@ from lib.protocols.stop_and_wait import StopAndWaitStrategy
 from lib.protocols.selective_repeat import SelectiveRepeatStrategy
 from lib.strategies_clients.base_client import ClientStrategy
 
-from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER
+from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, HANDSHAKE_TIMEOUT
 
 
 class ClientUploader(ClientStrategy):
@@ -22,9 +22,9 @@ class ClientUploader(ClientStrategy):
 
         self._handshake_phase(remote_name, file_size)
 
-        if self.protocol_name == "sr":
+        if self.protocol_name == SR_STRATEGY:
             strategy = SelectiveRepeatStrategy(self.sock, self.server_addr, self.logger)
-        elif self.protocol_name == 'sw':
+        elif self.protocol_name == SW_STRATEGY:
             strategy = StopAndWaitStrategy(self.sock, self.server_addr, self.logger)
         else:
             raise ValueError(f"Protocol '{self.protocol_name}' not supported.")
@@ -35,7 +35,7 @@ class ClientUploader(ClientStrategy):
 
     def _handshake_phase(self, remote_name: str, file_size: int):
         self.logger.debug("Starting handshake...")
-        self.sock.settimeout(0.2)
+        self.sock.settimeout(HANDSHAKE_TIMEOUT)
 
         hs_packet = HandshakeDatagram(remote_name, self.protocol_name, file_size)
         bytes_to_send = hs_packet.to_bytes()
@@ -60,7 +60,7 @@ class ClientUploader(ClientStrategy):
     def _teardown_phase(self):
         self.logger.debug("Starting Secure Teardown...")
         self.sock.setblocking(True)
-        self.sock.settimeout(0.2)
+        self.sock.settimeout(HANDSHAKE_TIMEOUT)
 
         close_packet = CloseDatagram(self.next_seq_num)
         close_bytes = close_packet.to_bytes()

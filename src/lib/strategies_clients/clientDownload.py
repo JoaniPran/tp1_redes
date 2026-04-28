@@ -7,9 +7,10 @@ from lib.datagrams.donwload import DownloadRequestDatagram
 from lib.datagrams.ack import AckDatagram
 # Aquí importarás las estrategias de recepción, que son distintas a las de envío
 from lib.protocols.stop_and_wait import StopAndWaitStrategy
+from lib.protocols.selective_repeat import SelectiveRepeatStrategy
 from lib.strategies_clients.base_client import ClientStrategy
 
-from lib.constants import SOCKET_RECV_BUFFER
+from lib.constants import SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, REQUEST_TIMEOUT
 
 class ClientDownloader(ClientStrategy):
     def download_file(self, remote_name: str, local_path: str):
@@ -17,10 +18,10 @@ class ClientDownloader(ClientStrategy):
         self._request_phase(remote_name)
 
         # 2. Elegir estrategia de recepción
-        if self.protocol_name == 'sw':
+        if self.protocol_name == SW_STRATEGY:
             strategy = StopAndWaitStrategy(self.sock, self.server_addr, self.logger)
-        else:
-            raise ValueError("Protocolo no soportado")
+        elif self.protocol_name == SR_STRATEGY:
+            strategy = SelectiveRepeatStrategy(self.sock, self.server_addr, self.logger)
 
         # 3. Transferencia (Recibir datos y escribir en disco)
         strategy.receive(local_path)
@@ -30,7 +31,7 @@ class ClientDownloader(ClientStrategy):
 
     def _request_phase(self, remote_name: str):
         self.logger.debug(f"Enviando pedido de descarga para: {remote_name}")
-        self.sock.settimeout(1.0)
+        self.sock.settimeout(REQUEST_TIMEOUT)
 
         # Opcode 1: Download Request
         request_packet = DownloadRequestDatagram(remote_name)
