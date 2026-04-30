@@ -1,18 +1,6 @@
-
-from abc import ABC, abstractmethod
-
+from abc import ABC
 import socket
 import logging
-import os
-
-from lib.datagrams.datagram import Datagram
-from lib.datagrams.handshake import HandshakeDatagram
-from lib.datagrams.ack import AckDatagram
-from lib.datagrams.close import CloseDatagram
-from lib.protocols.stop_and_wait import StopAndWaitStrategy
-from lib.protocols.selective_repeat import SelectiveRepeatStrategy
-
-
 
 from lib.constants import MAX_NETWORK_ATTEMPTS
 
@@ -25,5 +13,3 @@ class ClientStrategy(ABC):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.max_attempts = MAX_NETWORK_ATTEMPTS
         self.next_seq_num = 1
-
-  

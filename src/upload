@@ -3,7 +3,7 @@ import argparse
 import sys
 
 from lib.helpers import setup_logger, check_file
-from lib.strategies_clients.clientUpload import ClientUploader
+from lib.client.client_upload import ClientUploader
 
 
 def main():

@@ -1,15 +1,13 @@
 import socket
-import logging
 import os
 
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.close import CloseDatagram
-from lib.protocols.stop_and_wait import StopAndWaitStrategy
-from lib.protocols.selective_repeat import SelectiveRepeatStrategy
-from lib.strategies_clients.base_client import ClientStrategy
-
+from lib.protocols.stop_and_wait import StopAndWaitProtocol
+from lib.protocols.selective_repeat import SelectiveRepeatProtocol
+from lib.client.base_client import ClientStrategy
 from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, HANDSHAKE_TIMEOUT
 
 
@@ -19,17 +17,16 @@ class ClientUploader(ClientStrategy):
         if file_size > MAX_FILE_SIZE:
             self.logger.error(f"File size ({file_size} bytes) exceeds the 20MB limit.")
             raise ValueError("File size exceeds the 20MB limit.")
-
         self._handshake_phase(remote_name, file_size)
 
         if self.protocol_name == SR_STRATEGY:
-            strategy = SelectiveRepeatStrategy(self.sock, self.server_addr, self.logger)
+            protocol = SelectiveRepeatProtocol(self.sock, self.server_addr, self.logger)
         elif self.protocol_name == SW_STRATEGY:
-            strategy = StopAndWaitStrategy(self.sock, self.server_addr, self.logger)
+            protocol = StopAndWaitProtocol(self.sock, self.server_addr, self.logger)
         else:
             raise ValueError(f"Protocol '{self.protocol_name}' not supported.")
 
-        self.next_seq_num = strategy.transfer(local_path, self.next_seq_num)
+        self.next_seq_num = protocol.send_file(local_path, self.next_seq_num)
         self._teardown_phase()
         self.sock.close()
 

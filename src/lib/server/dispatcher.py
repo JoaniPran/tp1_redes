@@ -6,9 +6,9 @@ from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.error import ErrorDatagram
 from lib.constants import MAX_FILE_SIZE, SOCKET_RECV_BUFFER
-from lib.server.worker import Worker
-from lib.server.downloadWorker import DownloadWorker
-from lib.datagrams.donwload import DownloadRequestDatagram
+from lib.server.upload_worker import UploadWorker
+from lib.server.download_worker import DownloadWorker
+from lib.datagrams.download import DownloadRequestDatagram
 
 
 class ServerDispatcher:
@@ -32,20 +32,18 @@ class ServerDispatcher:
                         error_pkt = ErrorDatagram("File too large. Max 20MB.")
                         self.sock.sendto(error_pkt.to_bytes(), client_addr)
                         continue
-
                     self.logger.info(f"New Handshake from {client_addr} for file: {packet.file_name}")
-                    worker = Worker(client_addr, packet, self.storage, self.logger)
+                    worker = UploadWorker(client_addr, packet, self.storage, self.logger)
                     worker_thread = threading.Thread(target=worker.run)
                     worker_thread.daemon = True
                     worker_thread.start()
 
                 elif isinstance(packet, DownloadRequestDatagram):
                     self.logger.info(f"Descarga detectada desde {client_addr} para {packet.file_name}")
-                    # Lanzamos el nuevo worker que creamos antes
-                    worker = DownloadWorker(client_addr, packet.file_name, self.storage, self.logger)
+                    worker = DownloadWorker(client_addr, packet.file_name, packet.protocol, self.storage, self.logger)
                     worker_thread = threading.Thread(target=worker.run)
-                    worker_thread.daemon = True # hilo muere inmediatamente si el programa principal (el servidor) se cierra.
-                    worker_thread.start() #worker_thread.start(), el Worker empieza a correr su método run() en un hilo separado.
+                    worker_thread.daemon = True
+                    worker_thread.start()
                 else:
                     self.logger.warning(f"Ignored packet on port {self.addr}: Unexpected Opcode.")
 

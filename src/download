@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-
 import argparse
 import sys
 
-# Importamos lo necesario (asumiendo que crearás la clase Downloader)
 from lib.helpers import setup_logger
-from lib.strategies_clients.clientDownload import ClientDownloader
+from lib.client.client_download import ClientDownloader
+
 
 def main():
     parser = argparse.ArgumentParser(description='File download client')
@@ -26,7 +25,6 @@ def main():
     logger.info(f"Iniciando DOWNLOAD de '{args.name}' desde {args.host}:{args.port}")
 
     try:
-        # Instanciamos el Downloader (Clase que crearemos a continuación)
         cliente = ClientDownloader(args.host, args.port, args.protocol, logger)
         cliente.download_file(args.name, args.dest)
         logger.info("Descarga finalizada con éxito.")
