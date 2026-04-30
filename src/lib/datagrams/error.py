@@ -1,5 +1,7 @@
 from lib.datagrams.datagram import Datagram
 from lib.constants import OPCODE_ERROR
+
+
 class ErrorDatagram(Datagram):
     def __init__(self, message: str):
         self.message = message

@@ -23,5 +23,5 @@ class DownloadRequestDatagram(Datagram):
 
         parts = payload_str.split("|", 1)
         if len(parts) < 2:
-            raise ValueError("Formato de DownloadRequest inválido")
+            raise ValueError("Invalid DownloadRequest format")
         return DownloadRequestDatagram(file_name=parts[1], protocol=parts[0])

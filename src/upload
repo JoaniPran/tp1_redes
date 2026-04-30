@@ -7,17 +7,17 @@ from lib.client.client_upload import ClientUploader
 
 
 def main():
-    parser = argparse.ArgumentParser(description='File upload client (Upload)')
+    parser = argparse.ArgumentParser(description='File upload client')
 
     verbosity = parser.add_mutually_exclusive_group()
-    verbosity.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
-    verbosity.add_argument('-q', '--quiet', action='store_true', help='Decrease output verbosity')
+    verbosity.add_argument('-v', '--verbose', action='store_true', help='Force debug messages (packet-level traces)')
+    verbosity.add_argument('-q', '--quiet', action='store_true', help='Suppress debug messages; show only essential info')
 
     parser.add_argument('-H', '--host', type=str, required=True, help='Server IP address')
     parser.add_argument('-p', '--port', type=int, required=True, help='Server port')
     parser.add_argument('-s', '--src', type=str, required=True, help='Source file path')
-    parser.add_argument('-n', '--name', type=str, required=True, help='Destination file name on server')
-    parser.add_argument('-r', '--protocol', type=str, choices=['sw', 'sr'], required=True, help='Protocol (sw/sr)')
+    parser.add_argument('-n', '--name', type=str, required=True, help='Remote file name on server')
+    parser.add_argument('-r', '--protocol', type=str, choices=['sw', 'sr'], required=True, help='sw or sr')
 
     args = parser.parse_args()
     logger = setup_logger(args.verbose, args.quiet, "Upload")

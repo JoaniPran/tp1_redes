@@ -9,13 +9,14 @@ from lib.datagrams.close import CloseDatagram
 from lib.constants import (
     PACKET_PAYLOAD_SIZE, ACK_BUFFER_SIZE, SOCKET_RECV_BUFFER,
     SELECT_TIMEOUT, CWMD_INITIAL, CWMD_MAX, CWMD_INCREMENT,
-    CWMD_BACKOFF, CWMD_MIN, MAX_RAM_BUFFER_PACKETS
+    CWMD_BACKOFF, CWMD_MIN, MAX_RAM_BUFFER_PACKETS,
+    RECEIVE_TIMEOUT
 )
 
 
 class SelectiveRepeatProtocol(RDTProtocol):
     def send_file(self, file_path: str, seq_num: int) -> int:
-        self.logger.debug("Iniciando envío con Selective Repeat + AIMD")
+        self.logger.debug("Starting Selective Repeat + AIMD send")
         self.sock.setblocking(False)
         base_seq = seq_num
         inflight_packets = {}
@@ -38,14 +39,16 @@ class SelectiveRepeatProtocol(RDTProtocol):
                                 if ack_streak > int(cwnd):
                                     cwnd = min(cwnd + CWMD_INCREMENT, max_cwnd)
                                     ack_streak = 0
-                                    self.logger.debug(f"Ventana incrementada a {int(cwnd)}")
+                                    self.logger.debug(f"Window increased to {int(cwnd)}")
                                 while base_seq in inflight_packets and inflight_packets[base_seq]['ack']:
                                     del inflight_packets[base_seq]
                                     base_seq += 1
 
                 while seq_num < base_seq + int(cwnd) and not eof:
                     block = file.read(PACKET_PAYLOAD_SIZE)
-                    if not block: eof = True; break
+                    if not block: 
+                        eof = True
+                        break
 
                     packet = DataDatagram(seq_num, block)
                     packet_bytes = packet.to_bytes()
@@ -69,38 +72,51 @@ class SelectiveRepeatProtocol(RDTProtocol):
                 if timeout_occurred:
                     cwnd = max(cwnd * CWMD_BACKOFF, CWMD_MIN)
                     ack_streak = 0
-                    self.logger.debug(f"AIMD: Congestion detectada. Ventana reducida a {int(cwnd)}")
+                    self.logger.debug(f"AIMD: Congestion detected. Window reduced to {int(cwnd)}")
 
         return seq_num
 
     def receive_file(self, dest_path: str, expected_seq: int) -> bool:
-        self.logger.debug("Iniciando recepción con Selective Repeat")
+        self.logger.debug("Starting Selective Repeat reception")
         self.sock.setblocking(False)
         buffer = {}
 
         with open(dest_path, "wb") as file:
             while True:
-                readable, _, _ = select.select([self.sock], [], [], 5.0)  # Timeout de seguridad
-                if not readable: raise ConnectionError("Timeout de recepción")
+                readable, _, _ = select.select([self.sock], [], [], RECEIVE_TIMEOUT) 
+                if not readable: 
+                    raise ConnectionError("Reception timeout: sender inactive")
 
                 data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
                 packet = Datagram.from_bytes(data)
 
                 if isinstance(packet, DataDatagram):
+                    if packet.seq_num < expected_seq:
+                        ack = AckDatagram(packet.seq_num)
+                        self.sock.sendto(ack.to_bytes(), self.target_addr)
+                        continue
+
                     ack = AckDatagram(packet.seq_num)
                     self.sock.sendto(ack.to_bytes(), self.target_addr)
 
                     if packet.seq_num == expected_seq:
                         file.write(packet.payload)
+                        self.logger.debug(f"Received block {packet.seq_num}")
                         expected_seq += 1
                         while expected_seq in buffer:
                             file.write(buffer.pop(expected_seq))
-                            expected_seq += 1
+                            self.logger.debug(f"Received block {expected_seq - 1} (from buffer)")
+                            expected_seq += 1 
                     elif packet.seq_num > expected_seq:
                         if len(buffer) < MAX_RAM_BUFFER_PACKETS:
                             buffer[packet.seq_num] = packet.payload
 
                 elif isinstance(packet, CloseDatagram):
-                    ack = AckDatagram(packet.seq_num)
-                    self.sock.sendto(ack.to_bytes(), self.target_addr)
-                    return True
+                    if packet.seq_num == expected_seq and not buffer:
+                        ack = AckDatagram(packet.seq_num)
+                        self.sock.sendto(ack.to_bytes(), self.target_addr)
+                        return True
+                    else:
+                        ack = AckDatagram(expected_seq - 1)
+                        self.sock.sendto(ack.to_bytes(), self.target_addr)
+                        self.logger.debug("Close received but data missing, waiting for retransmissions")

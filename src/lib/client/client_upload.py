@@ -5,18 +5,24 @@ from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.close import CloseDatagram
+from lib.datagrams.error import ErrorDatagram
 from lib.protocols.stop_and_wait import StopAndWaitProtocol
 from lib.protocols.selective_repeat import SelectiveRepeatProtocol
 from lib.client.base_client import ClientStrategy
-from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, HANDSHAKE_TIMEOUT
+from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, HANDSHAKE_TIMEOUT, TEARDOWN_TIMEOUT
 
 
 class ClientUploader(ClientStrategy):
     def upload_file(self, local_path: str, remote_name: str):
+        if not os.path.isfile(local_path):
+            raise FileNotFoundError(f"Local file {local_path} does not exist.")
+        if not os.access(local_path, os.R_OK):
+            raise PermissionError(f"No read permission for {local_path}.")
+
         file_size = os.path.getsize(local_path)
         if file_size > MAX_FILE_SIZE:
             self.logger.error(f"File size ({file_size} bytes) exceeds the 20MB limit.")
-            raise ValueError("File size exceeds the 20MB limit.")
+            raise ValueError(f"File size exceeds the maximum allowed size of {MAX_FILE_SIZE} bytes.")
         self._handshake_phase(remote_name, file_size)
 
         if self.protocol_name == SR_STRATEGY:
@@ -44,6 +50,10 @@ class ClientUploader(ClientStrategy):
                 data, new_addr = self.sock.recvfrom(PACKET_PAYLOAD_SIZE)
                 response = Datagram.from_bytes(data)
 
+                if isinstance(response, ErrorDatagram):
+                    self.logger.error(f"Server rejected upload: {response.message}")
+                    raise ConnectionError(f"Server error: {response.message}")
+
                 if isinstance(response, AckDatagram) and response.seq_num == 0:
                     self.server_addr = new_addr
                     self.logger.debug(f"Handshake successful. Assigned Worker: {new_addr}")
@@ -56,8 +66,8 @@ class ClientUploader(ClientStrategy):
 
     def _teardown_phase(self):
         self.logger.debug("Starting Secure Teardown...")
-        self.sock.setblocking(True)
-        self.sock.settimeout(HANDSHAKE_TIMEOUT)
+        self.sock.setblocking(False)
+        self.sock.settimeout(TEARDOWN_TIMEOUT)
 
         close_packet = CloseDatagram(self.next_seq_num)
         close_bytes = close_packet.to_bytes()

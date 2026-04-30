@@ -1,6 +1,6 @@
 from lib.datagrams.datagram import Datagram
-
 from lib.constants import OPCODE_ACK
+
 
 class AckDatagram(Datagram):
     def __init__(self, seq_num: int):

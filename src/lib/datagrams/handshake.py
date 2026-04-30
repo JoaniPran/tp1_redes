@@ -1,6 +1,7 @@
 from lib.datagrams.datagram import Datagram
 from lib.constants import OPCODE_HANDSHAKE
 
+
 class HandshakeDatagram(Datagram):
     def __init__(self, file_name: str, protocol: str = "sw", file_size: int = 0):
         self.file_name = file_name
