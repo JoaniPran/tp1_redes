@@ -24,25 +24,56 @@ class SelectiveRepeatProtocol(RDTProtocol):
         cwnd = CWMD_INITIAL
         max_cwnd = CWMD_MAX
         ack_streak = 0
+        out_of_order_acks = 0
 
         with open(file_path, "rb") as file:
             while not eof or inflight_packets:
                 readable, _, _ = select.select([self.sock], [], [], SELECT_TIMEOUT)
+
                 if readable:
-                    data, _ = self.sock.recvfrom(ACK_BUFFER_SIZE)
-                    if len(data) >= Datagram.HEADER_SIZE:
+                    while True:
+                        try:
+                            data, _ = self.sock.recvfrom(ACK_BUFFER_SIZE)
+                        except BlockingIOError:
+                            break
+
+                        if len(data) < Datagram.HEADER_SIZE:
+                            continue
+
                         ack = Datagram.from_bytes(data)
-                        if isinstance(ack, AckDatagram) and ack.seq_num in inflight_packets:
+                        if not isinstance(ack, AckDatagram):
+                            continue
+
+                        if ack.seq_num in inflight_packets:
                             if not inflight_packets[ack.seq_num]['ack']:
                                 inflight_packets[ack.seq_num]['ack'] = True
+                                
+                                if ack.seq_num > base_seq:
+                                    out_of_order_acks += 1
+                                    if out_of_order_acks >= 3:
+                                        if base_seq in inflight_packets and not inflight_packets[base_seq]["ack"]:
+                                            self.logger.debug(f"Fast retransmit seq {base_seq}")
+                                            self.sock.sendto(inflight_packets[base_seq]["data"], self.target_addr)
+                                            inflight_packets[base_seq]["timestamp"] = time.time()
+                                            cwnd = max(cwnd * CWMD_BACKOFF, CWMD_MIN)
+                                            self.logger.debug(f"Fast recovery: cwnd reduced to {int(cwnd)}")
+                                        out_of_order_acks = 0
+                                else:
+                                    out_of_order_acks = 0
+
                                 ack_streak += 1
                                 if ack_streak > int(cwnd):
                                     cwnd = min(cwnd + CWMD_INCREMENT, max_cwnd)
                                     ack_streak = 0
                                     self.logger.debug(f"Window increased to {int(cwnd)}")
+
                                 while base_seq in inflight_packets and inflight_packets[base_seq]['ack']:
                                     del inflight_packets[base_seq]
                                     base_seq += 1
+                        
+                        r, _, _ = select.select([self.sock], [], [], 0)
+                        if not r:
+                            break
 
                 while seq_num < base_seq + int(cwnd) and not eof:
                     block = file.read(PACKET_PAYLOAD_SIZE)
@@ -87,36 +118,45 @@ class SelectiveRepeatProtocol(RDTProtocol):
                 if not readable: 
                     raise ConnectionError("Reception timeout: sender inactive")
 
-                data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
-                packet = Datagram.from_bytes(data)
+                while True:
+                    try:
+                        data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
+                    except BlockingIOError:
+                        break
 
-                if isinstance(packet, DataDatagram):
-                    if packet.seq_num < expected_seq:
+                    packet = Datagram.from_bytes(data)
+
+                    if isinstance(packet, DataDatagram):
+                        if packet.seq_num < expected_seq:
+                            ack = AckDatagram(packet.seq_num)
+                            self.sock.sendto(ack.to_bytes(), self.target_addr)
+                            continue
+
                         ack = AckDatagram(packet.seq_num)
                         self.sock.sendto(ack.to_bytes(), self.target_addr)
-                        continue
 
-                    ack = AckDatagram(packet.seq_num)
-                    self.sock.sendto(ack.to_bytes(), self.target_addr)
+                        if packet.seq_num == expected_seq:
+                            file.write(packet.payload)
+                            self.logger.debug(f"Received block {packet.seq_num}")
+                            expected_seq += 1
+                            while expected_seq in buffer:
+                                file.write(buffer.pop(expected_seq))
+                                self.logger.debug(f"Received block {expected_seq - 1} (from buffer)")
+                                expected_seq += 1 
+                        elif packet.seq_num > expected_seq:
+                            if len(buffer) < MAX_RAM_BUFFER_PACKETS:
+                                buffer[packet.seq_num] = packet.payload
 
-                    if packet.seq_num == expected_seq:
-                        file.write(packet.payload)
-                        self.logger.debug(f"Received block {packet.seq_num}")
-                        expected_seq += 1
-                        while expected_seq in buffer:
-                            file.write(buffer.pop(expected_seq))
-                            self.logger.debug(f"Received block {expected_seq - 1} (from buffer)")
-                            expected_seq += 1 
-                    elif packet.seq_num > expected_seq:
-                        if len(buffer) < MAX_RAM_BUFFER_PACKETS:
-                            buffer[packet.seq_num] = packet.payload
+                    elif isinstance(packet, CloseDatagram):
+                        if packet.seq_num == expected_seq and not buffer:
+                            ack = AckDatagram(packet.seq_num)
+                            self.sock.sendto(ack.to_bytes(), self.target_addr)
+                            return True
+                        else:
+                            ack = AckDatagram(expected_seq - 1)
+                            self.sock.sendto(ack.to_bytes(), self.target_addr)
+                            self.logger.debug("Close received but data missing, waiting for retransmissions")
 
-                elif isinstance(packet, CloseDatagram):
-                    if packet.seq_num == expected_seq and not buffer:
-                        ack = AckDatagram(packet.seq_num)
-                        self.sock.sendto(ack.to_bytes(), self.target_addr)
-                        return True
-                    else:
-                        ack = AckDatagram(expected_seq - 1)
-                        self.sock.sendto(ack.to_bytes(), self.target_addr)
-                        self.logger.debug("Close received but data missing, waiting for retransmissions")
+                    readable_more, _, _ = select.select([self.sock], [], [], 0)
+                    if not readable_more:
+                        break
