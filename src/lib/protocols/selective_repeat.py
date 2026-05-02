@@ -52,11 +52,13 @@ class SelectiveRepeatProtocol(RDTProtocol):
                                     out_of_order_acks += 1
                                     if out_of_order_acks >= 3:
                                         if base_seq in inflight_packets and not inflight_packets[base_seq]["ack"]:
-                                            self.logger.debug(f"Fast retransmit seq {base_seq}")
-                                            self.sock.sendto(inflight_packets[base_seq]["data"], self.target_addr)
-                                            inflight_packets[base_seq]["timestamp"] = time.time()
-                                            cwnd = max(cwnd * CWMD_BACKOFF, CWMD_MIN)
-                                            self.logger.debug(f"Fast recovery: cwnd reduced to {int(cwnd)}")
+                                            if not inflight_packets[base_seq].get("fast_retransmitted", False):
+                                                self.logger.debug(f"Fast retransmit seq {base_seq}")
+                                                self.sock.sendto(inflight_packets[base_seq]["data"], self.target_addr)
+                                                inflight_packets[base_seq]["timestamp"] = time.time()
+                                                inflight_packets[base_seq]["fast_retransmitted"] = True
+                                                cwnd = max(cwnd * CWMD_BACKOFF, CWMD_MIN)
+                                                self.logger.debug(f"Fast recovery: cwnd reduced to {int(cwnd)}")
                                         out_of_order_acks = 0
                                 else:
                                     out_of_order_acks = 0
@@ -86,7 +88,8 @@ class SelectiveRepeatProtocol(RDTProtocol):
                     inflight_packets[seq_num] = {
                         "data": packet_bytes,
                         "timestamp": time.time(),
-                        "ack": False
+                        "ack": False,
+                        "fast_retransmitted": False
                     }
                     self.sock.sendto(packet_bytes, self.target_addr)
                     seq_num += 1
@@ -98,6 +101,7 @@ class SelectiveRepeatProtocol(RDTProtocol):
                         self.logger.debug(f"SR: Timeout for seq {current_seq}. Resending...")
                         self.sock.sendto(info["data"], self.target_addr)
                         info["timestamp"] = current_time
+                        info["fast_retransmitted"] = False
                         timeout_occurred = True
 
                 if timeout_occurred:
