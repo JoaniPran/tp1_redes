@@ -115,12 +115,20 @@ class SelectiveRepeatProtocol(RDTProtocol):
         self.logger.debug("Starting Selective Repeat reception")
         self.sock.setblocking(False)
         buffer = {}
+        idle_timeouts = 0
+        max_idle_timeouts = 30  # 15 secs de idle (0.5s per timeout)
 
         with open(dest_path, "wb") as file:
             while True:
                 readable, _, _ = select.select([self.sock], [], [], RECEIVE_TIMEOUT) 
-                if not readable: 
-                    raise ConnectionError("Reception timeout: sender inactive")
+                if not readable:
+                    idle_timeouts += 1
+                    if idle_timeouts >= max_idle_timeouts:
+                        raise ConnectionError("Reception timeout: sender inactive")
+                    #  Cliente puede estar preparando el close
+                    continue
+
+                idle_timeouts = 0  # Reset on successful reception
 
                 while True:
                     try:

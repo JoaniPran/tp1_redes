@@ -41,12 +41,15 @@ class StopAndWaitProtocol(RDTProtocol):
 
     def receive_file(self, dest_path: str, expected_seq: int) -> bool:
         self.logger.debug(f"Receiving file via Stop & Wait from {self.target_addr}")
-        self.sock.settimeout(WORKER_SOCKET_TIMEOUT)
+        self.sock.settimeout(1.0)  # Antes era 15
+        idle_timeouts = 0
+        max_idle_timeouts = 15  # Ahora son 15 de 1 sec 
 
         with open(dest_path, "wb") as file:
             while True:
                 try:
                     data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
+                    idle_timeouts = 0  # Reset si recibo algo
                     packet = Datagram.from_bytes(data)
 
                     if isinstance(packet, DataDatagram):
@@ -65,4 +68,7 @@ class StopAndWaitProtocol(RDTProtocol):
                         self.sock.sendto(ack.to_bytes(), self.target_addr)
                         return True
                 except socket.timeout:
-                    raise ConnectionError("Sender inactivity timeout")
+                    idle_timeouts += 1
+                    if idle_timeouts >= max_idle_timeouts:
+                        raise ConnectionError("Sender inactivity timeout")
+                    # Puede estar preparando el close, sigo esperando
