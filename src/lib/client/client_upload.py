@@ -1,5 +1,6 @@
 import socket
 import os
+import time
 
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
@@ -9,7 +10,7 @@ from lib.datagrams.error import ErrorDatagram
 from lib.protocols.stop_and_wait import StopAndWaitProtocol
 from lib.protocols.selective_repeat import SelectiveRepeatProtocol
 from lib.client.base_client import ClientStrategy
-from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, HANDSHAKE_TIMEOUT, TEARDOWN_TIMEOUT
+from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, HANDSHAKE_TIMEOUT, TEARDOWN_TIMEOUT, TEARDOWN_ACK_RETRIES, TEARDOWN_ACK_SLEEP, TEARDOWN_GRACE_SECONDS, CLIENT_TEARDOWN_TOTAL_ATTEMPTS
 
 
 class ClientUploader(ClientStrategy):
@@ -66,23 +67,44 @@ class ClientUploader(ClientStrategy):
 
     def _teardown_phase(self):
         self.logger.debug("Starting Secure Teardown...")
-        self.sock.setblocking(False)
-        self.sock.settimeout(TEARDOWN_TIMEOUT)
-
+        # Envio el Close un par de veces 
         close_packet = CloseDatagram(self.next_seq_num)
         close_bytes = close_packet.to_bytes()
 
-        attempts = 0
-        while attempts < self.max_attempts:
+        for _ in range(TEARDOWN_ACK_RETRIES):
             self.sock.sendto(close_bytes, self.server_addr)
+            time.sleep(TEARDOWN_ACK_SLEEP)
+
+        # Espero el ACK del Close, si no llega, cierro igual
+        deadline = time.time() + TEARDOWN_GRACE_SECONDS
+        ack_received = False
+        self.sock.settimeout(TEARDOWN_ACK_SLEEP)
+        while time.time() < deadline:
             try:
                 data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
-                response = Datagram.from_bytes(data)
-
-                if isinstance(response, AckDatagram) and response.seq_num == self.next_seq_num:
-                    self.logger.debug("Teardown confirmed by the server.")
-                    return
             except socket.timeout:
-                attempts += 1
+                continue
+            try:
+                pkt = Datagram.from_bytes(data)
+            except Exception:
+                continue
 
-        self.logger.warning("No teardown ACK received, assuming successful delivery.")
+            if isinstance(pkt, AckDatagram) and pkt.seq_num == self.next_seq_num:
+                ack_received = True
+                self.logger.debug(f"Received ACK for client FIN (seq={pkt.seq_num})")
+                continue
+
+            if isinstance(pkt, CloseDatagram):
+                ack = AckDatagram(pkt.seq_num)
+                self.sock.sendto(ack.to_bytes(), self.server_addr)
+                self.logger.debug(f"Sent ACK for server FIN (seq={pkt.seq_num}). Teardown complete.")
+                return
+
+            if isinstance(pkt, ErrorDatagram):
+                self.logger.warning(f"Client sent error during teardown: {pkt.message}")
+                return
+
+        if ack_received:
+            self.logger.debug("Client FIN acknowledged; teardown complete.")
+        else:
+            self.logger.debug("No ACK or server FIN received; teardown complete.")

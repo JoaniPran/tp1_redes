@@ -10,7 +10,8 @@ from lib.constants import (
     PACKET_PAYLOAD_SIZE, ACK_BUFFER_SIZE, SOCKET_RECV_BUFFER,
     SELECT_TIMEOUT, CWMD_INITIAL, CWMD_MAX, CWMD_INCREMENT,
     CWMD_BACKOFF, CWMD_MIN, MAX_RAM_BUFFER_PACKETS,
-    RECEIVE_TIMEOUT
+    RECEIVE_TIMEOUT, SR_MAX_IDLE_TIMEOUTS,
+    TEARDOWN_ACK_RETRIES, TEARDOWN_ACK_SLEEP, TEARDOWN_GRACE_SECONDS, CLIENT_TEARDOWN_TOTAL_ATTEMPTS
 )
 
 
@@ -116,7 +117,7 @@ class SelectiveRepeatProtocol(RDTProtocol):
         self.sock.setblocking(False)
         buffer = {}
         idle_timeouts = 0
-        max_idle_timeouts = 30  # 15 secs de idle (0.5s per timeout)
+        max_idle_timeouts = SR_MAX_IDLE_TIMEOUTS
 
         with open(dest_path, "wb") as file:
             while True:
@@ -163,6 +164,23 @@ class SelectiveRepeatProtocol(RDTProtocol):
                         if packet.seq_num == expected_seq and not buffer:
                             ack = AckDatagram(packet.seq_num)
                             self.sock.sendto(ack.to_bytes(), self.target_addr)
+                            
+                            # Aumento la seq para el Close del server y envío nuestro Close
+                            expected_seq += 1
+                            server_close = CloseDatagram(expected_seq)
+                            self.sock.setblocking(False)
+                            for attempt in range(TEARDOWN_ACK_RETRIES):
+                                self.sock.sendto(server_close.to_bytes(), self.target_addr)
+                                end_time = time.time() + TEARDOWN_GRACE_SECONDS
+                                while time.time() < end_time:
+                                    try:
+                                        data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
+                                        pkt = Datagram.from_bytes(data)
+                                        if isinstance(pkt, AckDatagram) and pkt.seq_num == expected_seq:
+                                            self.logger.debug("Received ACK for server FIN")
+                                            return True
+                                    except BlockingIOError:
+                                        time.sleep(0.01)
                             return True
                         else:
                             ack = AckDatagram(expected_seq - 1)

@@ -1,6 +1,7 @@
 import os
 import logging
 import socket
+import time
 
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.ack import AckDatagram
@@ -9,7 +10,16 @@ from lib.datagrams.error import ErrorDatagram
 from lib.protocols.stop_and_wait import StopAndWaitProtocol
 from lib.protocols.selective_repeat import SelectiveRepeatProtocol
 from lib.helpers import send_error_reliably
-from lib.constants import WORKER_SOCKET_TIMEOUT, SR_STRATEGY, SW_STRATEGY, MAX_NETWORK_ATTEMPTS, ACK_BUFFER_SIZE
+from lib.constants import (
+    WORKER_SOCKET_TIMEOUT,
+    SR_STRATEGY,
+    SW_STRATEGY,
+    MAX_NETWORK_ATTEMPTS,
+    ACK_BUFFER_SIZE,
+    TEARDOWN_GRACE_SECONDS,
+    TEARDOWN_ACK_RETRIES,
+    TEARDOWN_ACK_SLEEP,
+)
 
 
 class DownloadWorker:
@@ -34,7 +44,10 @@ class DownloadWorker:
             return
 
         ack_hs = AckDatagram(0)
-        self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
+        # Mando varias veces el ACK del handshake para asegurar que el cliente lo reciba y no se quede esperando. El cliente solo necesita uno, pero si no llega, se queda colgado.
+        for _ in range(TEARDOWN_ACK_RETRIES):
+            self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
+            time.sleep(TEARDOWN_ACK_SLEEP)
         self.logger.debug(f"DownloadWorker started on port {local_port} for {self.client_addr} ({self.protocol_name})")
 
         if self.protocol_name == SR_STRATEGY:
@@ -63,24 +76,58 @@ class DownloadWorker:
             self.sock.close()
 
     def _teardown_phase(self, final_seq_num: int):
+        """Envio Close, espero por ACK, luego recibo Close del cliente y ACKeo."""
         self.logger.debug("Starting download connection teardown...")
-        self.sock.settimeout(0.5)
-
+        self.sock.setblocking(False)
         close_packet = CloseDatagram(final_seq_num)
         bytes_to_send = close_packet.to_bytes()
 
+        acked_server_close = False
         attempts = 0
         while attempts < MAX_NETWORK_ATTEMPTS:
             self.sock.sendto(bytes_to_send, self.client_addr)
+            attempts += 1
+            end_time = time.time() + TEARDOWN_GRACE_SECONDS
+            while time.time() < end_time:
+                try:
+                    data, _ = self.sock.recvfrom(ACK_BUFFER_SIZE)
+                    response = Datagram.from_bytes(data)
+                    if isinstance(response, AckDatagram) and response.seq_num == final_seq_num:
+                        self.logger.debug("Received ACK for server Close")
+                        acked_server_close = True
+                        break
+                    elif isinstance(response, CloseDatagram):
+                        # Me llega el Close del cliente antes que el ACK de mi close
+                        # ACKeo el close del cliente y doy por terminado el teardown
+                        ack = AckDatagram(response.seq_num)
+                        self.sock.sendto(ack.to_bytes(), self.client_addr)
+                        self.logger.debug("Received client Close. Sent ACK. Teardown complete.")
+                        return
+                    elif isinstance(response, ErrorDatagram):
+                        self.logger.warning(f"Client sent error during teardown: {response.message}")
+                        return
+                except BlockingIOError:
+                    time.sleep(0.01)
+
+            if acked_server_close:
+                break
+
+        if not acked_server_close:
+            self.logger.warning("Teardown finished due to max retries.")
+            return
+
+        # Espero por el Close del cliente y lo ACKeo. Si no llega, cierro igual.
+        end_time = time.time() + TEARDOWN_GRACE_SECONDS
+        while time.time() < end_time:
             try:
                 data, _ = self.sock.recvfrom(ACK_BUFFER_SIZE)
                 response = Datagram.from_bytes(data)
-                if isinstance(response, AckDatagram) and response.seq_num == final_seq_num:
+                if isinstance(response, CloseDatagram):
+                    ack = AckDatagram(response.seq_num)
+                    self.sock.sendto(ack.to_bytes(), self.client_addr)
+                    self.logger.debug("Received client Close. Sent ACK. Teardown complete.")
                     return
-                elif isinstance(response, ErrorDatagram):
-                    self.logger.warning(f"Client sent error during teardown: {response.message}")
-                    return
-            except socket.timeout:
-                attempts += 1
+            except BlockingIOError:
+                time.sleep(0.01)
 
-        self.logger.warning("Teardown finished due to max retries.")
+        self.logger.warning("Teardown finished waiting for client Close.")

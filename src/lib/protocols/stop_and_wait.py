@@ -1,11 +1,22 @@
 import socket
+import time
 
 from lib.protocols.base import RDTProtocol
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.data import DataDatagram
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.close import CloseDatagram
-from lib.constants import PACKET_PAYLOAD_SIZE, ACK_BUFFER_SIZE, SOCKET_RECV_BUFFER, WORKER_SOCKET_TIMEOUT
+from lib.constants import (
+    PACKET_PAYLOAD_SIZE,
+    ACK_BUFFER_SIZE,
+    SOCKET_RECV_BUFFER,
+    SW_RECEIVE_TIMEOUT,
+    SW_MAX_IDLE_TIMEOUTS,
+    TEARDOWN_ACK_RETRIES,
+    TEARDOWN_ACK_SLEEP,
+    TEARDOWN_GRACE_SECONDS,
+    CLIENT_TEARDOWN_TOTAL_ATTEMPTS,
+)
 
 
 class StopAndWaitProtocol(RDTProtocol):
@@ -41,9 +52,9 @@ class StopAndWaitProtocol(RDTProtocol):
 
     def receive_file(self, dest_path: str, expected_seq: int) -> bool:
         self.logger.debug(f"Receiving file via Stop & Wait from {self.target_addr}")
-        self.sock.settimeout(1.0)  # Antes era 15
+        self.sock.settimeout(SW_RECEIVE_TIMEOUT)
         idle_timeouts = 0
-        max_idle_timeouts = 15  # Ahora son 15 de 1 sec 
+        max_idle_timeouts = SW_MAX_IDLE_TIMEOUTS
 
         with open(dest_path, "wb") as file:
             while True:
@@ -64,8 +75,25 @@ class StopAndWaitProtocol(RDTProtocol):
                             self.sock.sendto(ack.to_bytes(), self.target_addr)
 
                     elif isinstance(packet, CloseDatagram):
+                        # ACK del Close del cliente, luego envío nuestro Close con el siguiente seq y espero su ACK
+                        self.final_seq_received = packet.seq_num
                         ack = AckDatagram(packet.seq_num)
                         self.sock.sendto(ack.to_bytes(), self.target_addr)
+                        expected_seq += 1
+                        server_close = CloseDatagram(expected_seq)
+                        self.sock.setblocking(False)
+                        for attempt in range(TEARDOWN_ACK_RETRIES):
+                            self.sock.sendto(server_close.to_bytes(), self.target_addr)
+                            end_time = time.time() + TEARDOWN_GRACE_SECONDS
+                            while time.time() < end_time:
+                                try:
+                                    data, _ = self.sock.recvfrom(SOCKET_RECV_BUFFER)
+                                    pkt = Datagram.from_bytes(data)
+                                    if isinstance(pkt, AckDatagram) and pkt.seq_num == expected_seq:
+                                        self.logger.debug("Received ACK for server FIN")
+                                        return True
+                                except BlockingIOError:
+                                    time.sleep(0.01)
                         return True
                 except socket.timeout:
                     idle_timeouts += 1

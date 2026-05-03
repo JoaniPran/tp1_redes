@@ -50,10 +50,11 @@ class ServerDispatcher:
                         continue
 
                     key = (client_addr, packet.file_name)
-                    if key in self._active_transfers:
-                        self.logger.debug(f"Ignoring duplicate upload handshake from {client_addr} for {packet.file_name}")
-                        continue
-                    self._active_transfers[key] = time.time()
+                    with self._lock:
+                        if key in self._active_transfers:
+                            self.logger.debug(f"Ignoring duplicate upload handshake from {client_addr} for {packet.file_name}")
+                            continue
+                        self._active_transfers[key] = time.time()
 
                     self.logger.info(f"New Handshake from {client_addr} for file: {packet.file_name}")
                     worker = UploadWorker(client_addr, packet, self.storage, self.logger)
