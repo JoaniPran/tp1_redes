@@ -1,28 +1,34 @@
 from mininet.net import Mininet
-from mininet.node import OVSController
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import setLogLevel
+import os
 
 def run_topology():
-    # Es crucial pasar TCLink para poder simular pérdidas
-    net = Mininet(controller=OVSController, link=TCLink)
+    # Obtener el directorio donde está topo.py
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Crear Mininet sin controlador - funciona como bridge L2
+    net = Mininet(link=TCLink)
 
-    print("*** Añadiendo controlador")
-    net.addController('c0')
-
-    print("*** Añadiendo hosts (Servidor y Cliente) y Switch")
+    print("*** Añadiendo hosts (Servidor y Cliente)")
     server = net.addHost('h1', ip='10.0.0.1/24')
     client = net.addHost('h2', ip='10.0.0.2/24')
-    switch = net.addSwitch('s1')
+    
+    print("*** Añadiendo Switch")
+    switch = net.addSwitch('s1', failMode='standalone')
 
-    print("*** Creando enlaces con 5% de pérdida en cada pata (~9.75% total)")
-    # Si quieres el 10% de un solo lado, pon loss=10 en uno y loss=0 en el otro.
+    print("*** Creando enlaces con 5% de pérdida en cada pata")
     net.addLink(server, switch, loss=5)
     net.addLink(client, switch, loss=5)
 
     print("*** Iniciando la red Mininet")
     net.start()
+    
+    print(f"*** Working directory: {script_dir}")
+    # Cambiar al directorio del script para ambos hosts
+    server.cmd(f'cd {script_dir}')
+    client.cmd(f'cd {script_dir}')
 
     print("*** Entrando a la consola interactiva")
     CLI(net)
