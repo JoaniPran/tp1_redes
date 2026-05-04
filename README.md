@@ -138,6 +138,14 @@ Utilizamos el formato de red Big-Endian (!) para evitar problemas de arquitectur
 
 | Campo | Formato | Tamaño | Descripción |
 | :--- | :--- | :--- | :--- |
-| **Opcode** | `B` (unsigned char) | 1 byte | 0: Upload, 2: Datos, 3: ACK, 7: FIN |
+| **Opcode** | `B` (unsigned char) | 1 byte | 0: HANDSHAKE (Upload), 1: DOWNLOAD, 2: DATA, 3: ACK, 4: ERROR, 7: CLOSE (FIN) |
 | **Secuencia** | `I` (unsigned int) | 4 bytes | Número de secuencia del paquete |
 | **Tamaño** | `H` (unsigned short) | 2 bytes | Longitud del payload (datos) |
+
+**Descripción de Opcodes:**
+- **0 - HANDSHAKE (Upload):** Inicia una transferencia de archivo desde cliente a servidor
+- **1 - DOWNLOAD:** Solicita la descarga de un archivo del servidor
+- **2 - DATA:** Paquete de datos con contenido del archivo
+- **3 - ACK:** Confirmación de recepción de datos
+- **4 - ERROR:** Notificación de error en la transferencia
+- **7 - CLOSE (FIN):** Cierra la conexión y finaliza la transferencia
