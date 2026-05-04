@@ -13,14 +13,16 @@ def run_topology():
 
     print("*** Añadiendo hosts (Servidor y Cliente)")
     server = net.addHost('h1', ip='10.0.0.1/24')
-    client = net.addHost('h2', ip='10.0.0.2/24')
+    client1 = net.addHost('h2', ip='10.0.0.2/24')
+    client2 = net.addHost('h3', ip='10.0.0.3/24')
     
     print("*** Añadiendo Switch")
     switch = net.addSwitch('s1', failMode='standalone')
 
     print("*** Creando enlaces con 5% de pérdida en cada pata")
     net.addLink(server, switch, loss=5)
-    net.addLink(client, switch, loss=5)
+    net.addLink(client1, switch, loss=5)
+    net.addLink(client2, switch, loss=5)
 
     print("*** Iniciando la red Mininet")
     net.start()
@@ -28,7 +30,8 @@ def run_topology():
     print(f"*** Working directory: {script_dir}")
     # Cambiar al directorio del script para ambos hosts
     server.cmd(f'cd {script_dir}')
-    client.cmd(f'cd {script_dir}')
+    client1.cmd(f'cd {script_dir}')
+    client2.cmd(f'cd {script_dir}')
 
     print("*** Entrando a la consola interactiva")
     CLI(net)
