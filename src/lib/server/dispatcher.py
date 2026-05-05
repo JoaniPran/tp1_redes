@@ -5,7 +5,6 @@ import time
 
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.handshake import HandshakeDatagram
-from lib.datagrams.error import ErrorDatagram
 from lib.server.upload_worker import UploadWorker
 from lib.server.download_worker import DownloadWorker
 from lib.datagrams.download import DownloadRequestDatagram
@@ -20,7 +19,7 @@ class ServerDispatcher:
         self.logger = logger
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         os.makedirs(self.storage, exist_ok=True)
-        
+
         self._active_transfers = {}
         self._lock = threading.Lock()
 
@@ -46,18 +45,24 @@ class ServerDispatcher:
                         continue
 
                     if packet.file_size > MAX_FILE_SIZE:
-                        send_error_reliably(self.sock, client_addr, f"File too large. Maximum allowed size is {MAX_FILE_SIZE} bytes.")
+                        send_error_reliably(
+                            self.sock,
+                            client_addr,
+                            f"File too large. Maximum allowed size is {MAX_FILE_SIZE} bytes.")
                         continue
 
                     key = (client_addr, packet.file_name)
                     with self._lock:
                         if key in self._active_transfers:
-                            self.logger.debug(f"Ignoring duplicate upload handshake from {client_addr} for {packet.file_name}")
+                            self.logger.debug(
+                                f"Ignoring duplicate upload handshake from {client_addr} for {
+                                    packet.file_name}")
                             continue
                         self._active_transfers[key] = time.time()
 
                     self.logger.info(f"New Handshake from {client_addr} for file: {packet.file_name}")
                     worker = UploadWorker(client_addr, packet, self.storage, self.logger)
+
                     def run_upload_worker(w, key):
                         try:
                             w.run()
@@ -70,7 +75,7 @@ class ServerDispatcher:
 
                 elif isinstance(packet, DownloadRequestDatagram):
                     self.logger.info(f"Download request detected from {client_addr} for {packet.file_name}")
-                    
+
                     full_path = os.path.join(self.storage, os.path.basename(packet.file_name))
                     if not os.path.isfile(full_path):
                         send_error_reliably(self.sock, client_addr, f"File not found: {packet.file_name}")
@@ -79,11 +84,14 @@ class ServerDispatcher:
                     key = (client_addr, packet.file_name)
                     with self._lock:
                         if key in self._active_transfers:
-                            self.logger.debug(f"Ignoring duplicate download request from {client_addr} for {packet.file_name}")
+                            self.logger.debug(
+                                f"Ignoring duplicate download request from {client_addr} for {
+                                    packet.file_name}")
                             continue
                         self._active_transfers[key] = time.time()
-                    
+
                     worker = DownloadWorker(client_addr, packet.file_name, packet.protocol, self.storage, self.logger)
+
                     def run_download_worker(w, key):
                         try:
                             w.run()

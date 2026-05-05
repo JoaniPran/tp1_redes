@@ -12,12 +12,18 @@ def main():
 
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument('-v', '--verbose', action='store_true', help='Force debug messages (packet-level traces)')
-    verbosity.add_argument('-q', '--quiet', action='store_true', help='Suppress debug messages; show only essential info')
+    verbosity.add_argument('-q', '--quiet', action='store_true',
+                           help='Suppress debug messages; show only essential info')
 
     parser.add_argument('-H', '--host', type=str, required=True, help='Server IP address')
     parser.add_argument('-p', '--port', type=int, required=True, help='Server port')
     parser.add_argument('-n', '--name', type=str, required=True, help='Remote file name')
-    parser.add_argument('-d', '--dest', type=str, default=None, help='Local destination path (default: ../downloads/<remote_name>)')
+    parser.add_argument(
+        '-d',
+        '--dest',
+        type=str,
+        default=None,
+        help='Local destination path (default: ../downloads/<remote_name>)')
     parser.add_argument('-r', '--protocol', type=str, choices=['sw', 'sr'], required=True, help='sw o sr')
 
     args = parser.parse_args()
@@ -43,6 +49,7 @@ def main():
     except Exception as e:
         logger.error(f"Critical failure during transfer: {e}")
         sys.exit(1)
+
 
 if __name__ == '__main__':
     main()

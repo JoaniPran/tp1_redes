@@ -1,16 +1,14 @@
 import socket
 import os
-import time
 
 from lib.datagrams.datagram import Datagram
 from lib.datagrams.download import DownloadRequestDatagram
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.error import ErrorDatagram
-from lib.datagrams.close import CloseDatagram
 from lib.protocols.stop_and_wait import StopAndWaitProtocol
 from lib.protocols.selective_repeat import SelectiveRepeatProtocol
 from lib.client.base_client import ClientStrategy
-from lib.constants import SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, REQUEST_TIMEOUT, TEARDOWN_GRACE_SECONDS
+from lib.constants import SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, REQUEST_TIMEOUT
 
 
 class ClientDownloader(ClientStrategy):

@@ -44,7 +44,9 @@ class DownloadWorker:
             return
 
         ack_hs = AckDatagram(0)
-        # Mando varias veces el ACK del handshake para asegurar que el cliente lo reciba y no se quede esperando. El cliente solo necesita uno, pero si no llega, se queda colgado.
+        # Mando varias veces el ACK del handshake para asegurar que el cliente lo
+        # reciba y no se quede esperando. El cliente solo necesita uno, pero si no
+        # llega, se queda colgado.
         for _ in range(TEARDOWN_ACK_RETRIES):
             self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
             time.sleep(TEARDOWN_ACK_SLEEP)

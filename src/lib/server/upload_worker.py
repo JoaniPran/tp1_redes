@@ -4,7 +4,6 @@ import logging
 
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.handshake import HandshakeDatagram
-from lib.datagrams.error import ErrorDatagram
 from lib.protocols.stop_and_wait import StopAndWaitProtocol
 from lib.protocols.selective_repeat import SelectiveRepeatProtocol
 from lib.helpers import send_error_reliably
@@ -16,7 +15,7 @@ class UploadWorker:
         self.client_addr = client_addr
         self.hs = hs_packet
         self.logger = logger
-        
+
         safe_name = os.path.basename(self.hs.file_name)
         self.final_path = os.path.join(storage, safe_name)
         unique_id = os.getpid()

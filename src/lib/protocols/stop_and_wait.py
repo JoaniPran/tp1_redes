@@ -13,9 +13,7 @@ from lib.constants import (
     SW_RECEIVE_TIMEOUT,
     SW_MAX_IDLE_TIMEOUTS,
     TEARDOWN_ACK_RETRIES,
-    TEARDOWN_ACK_SLEEP,
     TEARDOWN_GRACE_SECONDS,
-    CLIENT_TEARDOWN_TOTAL_ATTEMPTS,
 )
 
 
@@ -27,7 +25,7 @@ class StopAndWaitProtocol(RDTProtocol):
         with open(file_path, "rb") as file:
             while True:
                 block = file.read(PACKET_PAYLOAD_SIZE)
-                if not block: 
+                if not block:
                     break
 
                 packet = DataDatagram(seq_num, block)

@@ -10,7 +10,17 @@ from lib.datagrams.error import ErrorDatagram
 from lib.protocols.stop_and_wait import StopAndWaitProtocol
 from lib.protocols.selective_repeat import SelectiveRepeatProtocol
 from lib.client.base_client import ClientStrategy
-from lib.constants import MAX_FILE_SIZE, PACKET_PAYLOAD_SIZE, SOCKET_RECV_BUFFER, SW_STRATEGY, SR_STRATEGY, HANDSHAKE_TIMEOUT, TEARDOWN_TIMEOUT, TEARDOWN_ACK_RETRIES, TEARDOWN_ACK_SLEEP, TEARDOWN_GRACE_SECONDS, CLIENT_TEARDOWN_TOTAL_ATTEMPTS
+from lib.constants import (
+    MAX_FILE_SIZE,
+    PACKET_PAYLOAD_SIZE,
+    SOCKET_RECV_BUFFER,
+    SW_STRATEGY,
+    SR_STRATEGY,
+    HANDSHAKE_TIMEOUT,
+    TEARDOWN_ACK_RETRIES,
+    TEARDOWN_ACK_SLEEP,
+    TEARDOWN_GRACE_SECONDS,
+)
 
 
 class ClientUploader(ClientStrategy):
@@ -67,7 +77,7 @@ class ClientUploader(ClientStrategy):
 
     def _teardown_phase(self):
         self.logger.debug("Starting Secure Teardown...")
-        # Envio el Close un par de veces 
+        # Envio el Close un par de veces
         close_packet = CloseDatagram(self.next_seq_num)
         close_bytes = close_packet.to_bytes()
 

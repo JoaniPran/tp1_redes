@@ -4,10 +4,11 @@ from mininet.link import TCLink
 from mininet.log import setLogLevel
 import os
 
+
 def run_topology():
     # Obtener el directorio donde está topo.py
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    
+
     # Crear Mininet sin controlador
     net = Mininet(link=TCLink)
 
@@ -15,7 +16,7 @@ def run_topology():
     server = net.addHost('h1', ip='10.0.0.1/24')
     client1 = net.addHost('h2', ip='10.0.0.2/24')
     client2 = net.addHost('h3', ip='10.0.0.3/24')
-    
+
     print("*** Añadiendo Switch")
     switch = net.addSwitch('s1', failMode='standalone')
 
@@ -26,7 +27,7 @@ def run_topology():
 
     print("*** Iniciando la red Mininet")
     net.start()
-    
+
     print(f"*** Working directory: {script_dir}")
     # Cambiar al directorio del script para los hosts
     server.cmd(f'cd {script_dir}')
@@ -38,6 +39,7 @@ def run_topology():
 
     print("*** Deteniendo la red")
     net.stop()
+
 
 if __name__ == '__main__':
     setLogLevel('info')

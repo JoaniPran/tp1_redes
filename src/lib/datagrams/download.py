@@ -4,7 +4,7 @@ from lib.constants import OPCODE_DOWNLOAD
 
 class DownloadRequestDatagram(Datagram):
     def __init__(self, file_name: str, protocol: str = "sw"):
-        self.opcode = OPCODE_DOWNLOAD  
+        self.opcode = OPCODE_DOWNLOAD
         self.file_name = file_name
         self.protocol = protocol
 

@@ -22,9 +22,10 @@ def setup_logger(verbose: bool, quiet: bool, name: str) -> logging.Logger:
         handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
-        logger.addHandler(handler)  
+        logger.addHandler(handler)
 
     return logger
+
 
 def check_file(file_path: str, logger: logging.Logger) -> bool:
     if not os.path.exists(file_path):
@@ -35,6 +36,7 @@ def check_file(file_path: str, logger: logging.Logger) -> bool:
         return False
     return True
 
+
 def send_error_reliably(sock: socket.socket, target_addr: tuple, message: str, retries: int = 3, delay: float = 0.2):
     error_pkt = ErrorDatagram(message)
     data = error_pkt.to_bytes()
@@ -43,5 +45,5 @@ def send_error_reliably(sock: socket.socket, target_addr: tuple, message: str, r
             sock.sendto(data, target_addr)
             if attempt < retries - 1:
                 time.sleep(delay)
-        except:
+        except BaseException:
             break

@@ -18,7 +18,7 @@ class HandshakeDatagram(Datagram):
     def from_bytes(data: bytes) -> 'Datagram':
         _, _, size = Datagram.unpack_header(data)
         payload = data[Datagram.HEADER_SIZE: Datagram.HEADER_SIZE +
-                         size].decode('utf-8')
+                       size].decode('utf-8')
         parts = payload.split("|", 2)
         if len(parts) < 3:
             raise ValueError("Invalid Handshake payload format")

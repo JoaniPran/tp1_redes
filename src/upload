@@ -11,7 +11,8 @@ def main():
 
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument('-v', '--verbose', action='store_true', help='Force debug messages (packet-level traces)')
-    verbosity.add_argument('-q', '--quiet', action='store_true', help='Suppress debug messages; show only essential info')
+    verbosity.add_argument('-q', '--quiet', action='store_true',
+                           help='Suppress debug messages; show only essential info')
 
     parser.add_argument('-H', '--host', type=str, required=True, help='Server IP address')
     parser.add_argument('-p', '--port', type=int, required=True, help='Server port')

@@ -11,7 +11,7 @@ from lib.constants import (
     SELECT_TIMEOUT, CWMD_INITIAL, CWMD_MAX, CWMD_INCREMENT,
     CWMD_BACKOFF, CWMD_MIN, MAX_RAM_BUFFER_PACKETS,
     RECEIVE_TIMEOUT, SR_MAX_IDLE_TIMEOUTS,
-    TEARDOWN_ACK_RETRIES, TEARDOWN_ACK_SLEEP, TEARDOWN_GRACE_SECONDS, CLIENT_TEARDOWN_TOTAL_ATTEMPTS
+    TEARDOWN_ACK_RETRIES, TEARDOWN_GRACE_SECONDS
 )
 
 
@@ -48,7 +48,7 @@ class SelectiveRepeatProtocol(RDTProtocol):
                         if ack.seq_num in inflight_packets:
                             if not inflight_packets[ack.seq_num]['ack']:
                                 inflight_packets[ack.seq_num]['ack'] = True
-                                
+
                                 if ack.seq_num > base_seq:
                                     out_of_order_acks += 1
                                     if out_of_order_acks >= 3:
@@ -73,14 +73,14 @@ class SelectiveRepeatProtocol(RDTProtocol):
                                 while base_seq in inflight_packets and inflight_packets[base_seq]['ack']:
                                     del inflight_packets[base_seq]
                                     base_seq += 1
-                        
+
                         r, _, _ = select.select([self.sock], [], [], 0)
                         if not r:
                             break
 
                 while seq_num < base_seq + int(cwnd) and not eof:
                     block = file.read(PACKET_PAYLOAD_SIZE)
-                    if not block: 
+                    if not block:
                         eof = True
                         break
 
@@ -121,7 +121,7 @@ class SelectiveRepeatProtocol(RDTProtocol):
 
         with open(dest_path, "wb") as file:
             while True:
-                readable, _, _ = select.select([self.sock], [], [], RECEIVE_TIMEOUT) 
+                readable, _, _ = select.select([self.sock], [], [], RECEIVE_TIMEOUT)
                 if not readable:
                     idle_timeouts += 1
                     if idle_timeouts >= max_idle_timeouts:
@@ -155,7 +155,7 @@ class SelectiveRepeatProtocol(RDTProtocol):
                             while expected_seq in buffer:
                                 file.write(buffer.pop(expected_seq))
                                 self.logger.debug(f"Received block {expected_seq - 1} (from buffer)")
-                                expected_seq += 1 
+                                expected_seq += 1
                         elif packet.seq_num > expected_seq:
                             if len(buffer) < MAX_RAM_BUFFER_PACKETS:
                                 buffer[packet.seq_num] = packet.payload
@@ -164,7 +164,7 @@ class SelectiveRepeatProtocol(RDTProtocol):
                         if packet.seq_num == expected_seq and not buffer:
                             ack = AckDatagram(packet.seq_num)
                             self.sock.sendto(ack.to_bytes(), self.target_addr)
-                            
+
                             # Aumento la seq para el Close del server y envío nuestro Close
                             expected_seq += 1
                             server_close = CloseDatagram(expected_seq)

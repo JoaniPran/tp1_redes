@@ -21,5 +21,3 @@ class RDTProtocol(ABC):
     @abstractmethod
     def receive_file(self, dest_path: str, expected_seq: int) -> bool:
         pass
-
-
