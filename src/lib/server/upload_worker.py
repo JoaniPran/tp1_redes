@@ -30,10 +30,7 @@ class UploadWorker:
         local_port = self.sock.getsockname()[1]
 
         ack_hs = AckDatagram(0)
-        for _ in range(TEARDOWN_ACK_RETRIES):
-            self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
-            time.sleep(TEARDOWN_ACK_SLEEP)
-        self.logger.debug(f"UploadWorker started on port {local_port} for {self.client_addr}")
+        self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
 
         if self.hs.protocol == SR_STRATEGY:
             protocol = SelectiveRepeatProtocol(self.sock, self.client_addr, self.logger)

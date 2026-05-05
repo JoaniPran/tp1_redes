@@ -4,6 +4,7 @@ import os
 import time
 
 from lib.datagrams.datagram import Datagram
+from lib.datagrams.ack import AckDatagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.server.upload_worker import UploadWorker
 from lib.server.download_worker import DownloadWorker
@@ -54,14 +55,17 @@ class ServerDispatcher:
                     key = (client_addr, packet.file_name)
                     with self._lock:
                         if key in self._active_transfers:
-                            self.logger.debug(
-                                f"Ignoring duplicate upload handshake from {client_addr} for {packet.file_name}"
-                            )
+                            self.logger.debug(f"Duplicate upload request from {client_addr}, resending ACK...")
+                            worker_ref = self._active_transfers[key].get('worker')
+                            if worker_ref:
+                                ack_hs = AckDatagram(0)
+                                worker_ref.sock.sendto(ack_hs.to_bytes(), client_addr)
                             continue
-                        self._active_transfers[key] = time.time()
+
+                        worker = UploadWorker(client_addr, packet, self.storage, self.logger)
+                        self._active_transfers[key] = {'time': time.time(), 'worker': worker}
 
                     self.logger.info(f"New Handshake from {client_addr} for file: {packet.file_name}")
-                    worker = UploadWorker(client_addr, packet, self.storage, self.logger)
 
                     def run_upload_worker(w, key):
                         try:
