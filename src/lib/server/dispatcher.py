@@ -55,8 +55,8 @@ class ServerDispatcher:
                     with self._lock:
                         if key in self._active_transfers:
                             self.logger.debug(
-                                f"Ignoring duplicate upload handshake from {client_addr} for {
-                                    packet.file_name}")
+                                f"Ignoring duplicate upload handshake from {client_addr} for {packet.file_name}"
+                            )
                             continue
                         self._active_transfers[key] = time.time()
 
@@ -84,9 +84,7 @@ class ServerDispatcher:
                     key = (client_addr, packet.file_name)
                     with self._lock:
                         if key in self._active_transfers:
-                            self.logger.debug(
-                                f"Ignoring duplicate download request from {client_addr} for {
-                                    packet.file_name}")
+                            self.logger.debug(f"Ignoring duplicate download request from {client_addr} for {packet.file_name}")
                             continue
                         self._active_transfers[key] = time.time()
 
