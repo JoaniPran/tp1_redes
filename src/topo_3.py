@@ -44,9 +44,9 @@ def run_topology():
 
     print("*** [Test] Disparando los 3 clientes para DESCARGA simultanea...")
     # Asegurate de que los flags '-n' (remoto) y '-d' (destino local) coincidan con el parser de tu client_download.py
-    client1.cmd('python3 download -H 10.0.0.1 -p 8080 -d ./descargas/down_1.bin -n test_15mb.bin -r sr -v > h2_dowload.log 2>&1 &')
-    client2.cmd('python3 download -H 10.0.0.1 -p 8080 -d ./descargas/down_2.bin -n test_15mb_2.bin -r sr -v > h3_dowload.log 2>&1 &')
-    client3.cmd('python3 download -H 10.0.0.1 -p 8080 -d ./descargas/down_3.bin -n test_15mb_3.bin -r sr -v > h4_dowload.log 2>&1 &')
+    client1.cmd('python3 download -H 10.0.0.1 -p 8080 -d ./descargas/down_1.bin -n test_15mb.bin -r sr -v > h2_download.log 2>&1 &')
+    client2.cmd('python3 download -H 10.0.0.1 -p 8080 -d ./descargas/down_2.bin -n test_15mb_2.bin -r sr -v > h3_download.log 2>&1 &')
+    client3.cmd('python3 download -H 10.0.0.1 -p 8080 -d ./descargas/down_3.bin -n test_15mb_3.bin -r sr -v > h4_download.log 2>&1 &')
     
     print("*** [Test] Descargas iniciadas. Revisa los .log para ver el progreso.")
 
