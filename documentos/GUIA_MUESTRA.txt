@@ -1,0 +1,94 @@
+================================================================================
+                    MACHETE - PRUEBAS RDT PROTOCOLO
+================================================================================
+
+1. LEVANTAR MININET
+================================================================================
+
+Terminal 1 - Iniciar topología:
+> sudo python3 src/topo.py
+
+Abrir xterms de los hosts:
+mininet> xterm h1 h2 h3
+
+Distribución:
+- h1 (10.0.0.1): Servidor
+- h2 (10.0.0.2): Cliente
+- h3 (10.0.0.3): Cliente
+
+
+2. CONFIGURAR WIRESHARK
+================================================================================
+
+Terminal 2 - Ejecutar Wireshark con el dissector Lua:
+> wireshark -X lua_script:src/lib/mi_protocolo.lua &
+
+En Wireshark:
+a) Seleccionar interfaz: "any"
+b) Capture filter: host 10.0.0.1 or host 10.0.0.2 or host 10.0.0.3
+c) Display filter: fiuba_rdt
+
+
+3. EJECUTAR SERVIDOR
+================================================================================
+
+En la terminal de h1:
+> python3 start-server -H 10.0.0.1 -p 8080 -s ./server_storage -v
+
+
+4. PRUEBAS DE UPLOAD
+================================================================================
+
+4.1 Upload con Stop & Wait (en terminal de h2 o h3):
+> python3 upload -H 10.0.0.1 -p 8080 -s ../documentos/test.txt -n test_sw.txt -r sw -v
+
+4.2 Upload con Selective Repeat (en terminal de h2 o h3):
+> python3 upload -H 10.0.0.1 -p 8080 -s ../documentos/test.txt -n test_sr.txt -r sr -v
+
+
+5. PRUEBAS DE DOWNLOAD
+================================================================================
+
+5.1 Download con Stop & Wait (primero hacer un upload del archivo):
+> python3 download -H 10.0.0.1 -p 8080 -d ./downloads/test_sw_descargado.txt -n test_sw.txt -r sw -v
+
+5.2 Download con Selective Repeat:
+> python3 download -H 10.0.0.1 -p 8080 -d ./downloads/test_sr_descargado.txt -n test_sr.txt -r sr -v
+
+
+6. VERIFICAR INTEGRIDAD DE ARCHIVOS
+================================================================================
+
+Para comparar dos archivos y verificar que son idénticos (checksums):
+
+SHA256:
+> sha256sum ../documentos/test.txt
+> sha256sum ./server_storage/test_sw.txt
+> sha256sum ./downloads/test_sw_descargado.txt
+
+Los sums deben ser idénticos si la transferencia fue exitosa.
+
+MD5 (alternativa):
+> md5sum ../documentos/test.txt
+> md5sum ./server_storage/test_sw.txt
+
+Comparación directa:
+> diff ../documentos/test.txt ./downloads/test_sw_descargado.txt
+
+Si no hay salida significa que los archivos son idénticos.
+
+
+7. FLUJO TÍPICO DE PRUEBA
+================================================================================
+
+1. Levantar Mininet (Terminal 1)
+2. Abrir xterms (Terminal 2)
+3. Iniciar Wireshark (Terminal 3)
+4. Iniciar servidor en h1
+5. Ejecutar upload en h2 (mientras Wireshark captura)
+6. Detener captura en Wireshark
+7. Analizar paquetes (ver HANDSHAKE, DATA, ACK, CLOSE)
+8. Verificar integridad con sha256sum
+9. Repetir con otro protocolo y/o download
+
+================================================================================

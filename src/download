@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import argparse
+import sys
+import os
+
+from lib.helpers import setup_logger
+from lib.client.client_download import ClientDownloader
+
+
+def main():
+    parser = argparse.ArgumentParser(description='File download client')
+
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument('-v', '--verbose', action='store_true', help='Force debug messages (packet-level traces)')
+    verbosity.add_argument('-q', '--quiet', action='store_true',
+                           help='Suppress debug messages; show only essential info')
+
+    parser.add_argument('-H', '--host', type=str, required=True, help='Server IP address')
+    parser.add_argument('-p', '--port', type=int, required=True, help='Server port')
+    parser.add_argument('-n', '--name', type=str, required=True, help='Remote file name')
+    parser.add_argument(
+        '-d',
+        '--dest',
+        type=str,
+        default=None,
+        help='Local destination path (default: ../downloads/<remote_name>)')
+    parser.add_argument('-r', '--protocol', type=str, choices=['sw', 'sr'], required=True, help='sw o sr')
+
+    args = parser.parse_args()
+    logger = setup_logger(args.verbose, args.quiet, "Download")
+
+    if args.dest is None:
+        default_download_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'downloads'))
+        args.dest = os.path.join(default_download_dir, args.name)
+
+    dest_dir = os.path.dirname(args.dest) or '.'
+    try:
+        os.makedirs(dest_dir, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Cannot create destination directory '{dest_dir}': {e}")
+        sys.exit(1)
+
+    logger.info(f"Starting DOWNLOAD of '{args.name}' from {args.host}:{args.port} to '{args.dest}'")
+
+    try:
+        cliente = ClientDownloader(args.host, args.port, args.protocol, logger)
+        cliente.download_file(args.name, args.dest)
+        logger.info("Transfer completed successfully.")
+    except Exception as e:
+        logger.error(f"Critical failure during transfer: {e}")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
