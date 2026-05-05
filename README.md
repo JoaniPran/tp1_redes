@@ -55,11 +55,11 @@ Para ejecutar esta aplicación es necesario:
 
 
 ## Configuración del Entorno de mininet
-Se provee un script de topología personalizada (```topo.py```) que levanta 3 nodos (1 Servidor y 2 Clientes) conectados a un switch central, con una perdida de paquetes del 5% en cada enlace, lo que da como resultado un 10% de tasa total en el camino Cliente-Servidor
+Se provee un script de topología personalizada (```src/topo.py```) que levanta 3 nodos (1 Servidor y 2 Clientes) conectados a un switch central, con una perdida de paquetes del 5% en cada enlace, lo que da como resultado un 10% de tasa total en el camino Cliente-Servidor
 
 ### 1. Iniciar topología.
 ```bash
-sudo python3 topo.py
+sudo python3 src/topo.py
 ```
 ### 2. Una vez en el prompt interactivo de Mininet(```mininet>```), abrir las terminales de los hosts.
 ```bash
@@ -70,12 +70,14 @@ mininet> xterm h1 h2 h3
 ## Ejecución
 ### 1. Iniciar el servidor.
 
+Una vez dentro de las xterms de Mininet, los hosts quedan posicionados en `src/`.
+
 ```bash
-python3 src/start-server -H <IP_BIND> -p <PUERTO> -s <DIRECTORIO_ALMACENAMIENTO> [-v | -q]
+python3 start-server -H <IP_BIND> -p <PUERTO> -s <DIRECTORIO_ALMACENAMIENTO> [-v | -q]
 ```
 **Ejemplo de uso:**
 ```bash
-python3 src/start-server -v
+python3 start-server -v
 ```
 
 ### 2. Iniciar clientes:
@@ -85,12 +87,12 @@ Transfiere un archivo desde el almacenamiento local del cliente hacia el servido
 
 En la terminal de un cliente (ej. ```h2```), ejecutar:
 
-    python3 src/upload -H <IP_SERVIDOR> -p <PUERTO> -s <RUTA_ARCHIVO_ORIGEN> -n <NOMBRE_DESTINO> -r <PROTOCOLO> [-v | -q]
+    python3 upload -H <IP_SERVIDOR> -p <PUERTO> -s <RUTA_ARCHIVO_ORIGEN> -n <NOMBRE_DESTINO> -r <PROTOCOLO> [-v | -q]
     
 
 **Ejemplo de uso (Selective repeat)**
 ```bash
-python3 src/upload -H 10.0.0.1 -p 8080 -s ./documentos/test_15mb.bin -n test_15mb.bin -r sr -v
+python3 upload -H 10.0.0.1 -p 8080 -s ../documentos/test_15mb.bin -n test_15mb.bin -r sr -v
 ```
 
 ### - Download
@@ -98,11 +100,11 @@ Descarga un archivo existente en el servidor hacia el almacenamiento local del c
 
 En la terminal de un cliente (ej. ```h3```), ejecutar:
 
-    python3 src/download -H <IP_SERVIDOR> -p <PUERTO> -d <RUTA_ARCHIVO_DESTINO> -n <NOMBRE_ORIGEN> -r <PROTOCOLO> [-v | -q]
+    python3 download -H <IP_SERVIDOR> -p <PUERTO> -d <RUTA_ARCHIVO_DESTINO> -n <NOMBRE_ORIGEN> -r <PROTOCOLO> [-v | -q]
 
 **Ejemplo de uso (Selective repeat)**
 
-    python3 src/download -H 10.0.0.1 -p 8080 -d ./descargas/archivo_recibido.bin -n test_15mb.bin -r sw -v
+    python3 download -H 10.0.0.1 -p 8080 -d ./descargas/archivo_recibido.bin -n test_15mb.bin -r sw -v
 
 
 # Guía de Depuración
@@ -114,7 +116,7 @@ Hay 2 opciones.
 
 **Opción 1:** Ejecutar el siguiente comando
 ```bash
-wireshark -X lua_script:mi_protocolo.lua &
+wireshark -X lua_script:src/lib/mi_protocolo.lua &
 ```
 
 **Opción 2:**
@@ -122,7 +124,7 @@ wireshark -X lua_script:mi_protocolo.lua &
 1. Iniciar Wireshark normalmente
 2. Ir a la pestaña Help -> About Wireshark
 3. En la pestaña de ayuda ir a Folders -> Personal Lua Plugins
-4. Copiar el archivo ```mi_protocolo.lua``` y pegarlo en el directorio de plugins
+4. Copiar el archivo ```src/lib/mi_protocolo.lua``` y pegarlo en el directorio de plugins
 
 
 ### Pasos para la captura:

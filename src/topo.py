@@ -8,7 +8,7 @@ def run_topology():
     # Obtener el directorio donde está topo.py
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Crear Mininet sin controlador - funciona como bridge L2
+    # Crear Mininet sin controlador
     net = Mininet(link=TCLink)
 
     print("*** Añadiendo hosts (Servidor y Cliente)")
@@ -28,7 +28,7 @@ def run_topology():
     net.start()
     
     print(f"*** Working directory: {script_dir}")
-    # Cambiar al directorio del script para ambos hosts
+    # Cambiar al directorio del script para los hosts
     server.cmd(f'cd {script_dir}')
     client1.cmd(f'cd {script_dir}')
     client2.cmd(f'cd {script_dir}')
