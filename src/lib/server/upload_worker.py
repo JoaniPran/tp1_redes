@@ -1,13 +1,14 @@
 import socket
 import os
 import logging
+import time
 
 from lib.datagrams.ack import AckDatagram
 from lib.datagrams.handshake import HandshakeDatagram
 from lib.protocols.stop_and_wait import StopAndWaitProtocol
 from lib.protocols.selective_repeat import SelectiveRepeatProtocol
 from lib.helpers import send_error_reliably
-from lib.constants import WORKER_SOCKET_TIMEOUT, SR_STRATEGY, SW_STRATEGY
+from lib.constants import WORKER_SOCKET_TIMEOUT, SR_STRATEGY, SW_STRATEGY, TEARDOWN_ACK_RETRIES, TEARDOWN_ACK_SLEEP
 
 
 class UploadWorker:
@@ -30,6 +31,9 @@ class UploadWorker:
         self.logger.debug(f"UploadWorker started on port {local_port} for {self.client_addr}")
 
         ack_hs = AckDatagram(0)
+        for _ in range(TEARDOWN_ACK_RETRIES):
+            self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
+            time.sleep(TEARDOWN_ACK_SLEEP)
         self.sock.sendto(ack_hs.to_bytes(), self.client_addr)
 
         if self.hs.protocol == SR_STRATEGY:
