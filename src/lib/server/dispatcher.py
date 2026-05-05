@@ -27,7 +27,7 @@ class ServerDispatcher:
     def _cleanup_old_transfers(self, max_age: float = 60.0):
         now = time.time()
         with self._lock:
-            expired = [k for k, t in self._active_transfers.items() if now - t > max_age]
+            expired = [k for k, val in self._active_transfers.items() if now - val['time'] > max_age]
             for k in expired:
                 del self._active_transfers[k]
 
@@ -88,11 +88,16 @@ class ServerDispatcher:
                     key = (client_addr, packet.file_name)
                     with self._lock:
                         if key in self._active_transfers:
-                            self.logger.debug(f"Ignoring duplicate download request from {client_addr} for {packet.file_name}")
+                            self.logger.debug(f"Duplicate download request from {client_addr}, resending ACK...")
+        
+                            worker_ref = self._active_transfers[key].get('worker')
+                            if worker_ref:
+                                ack_hs = AckDatagram(0)
+                                worker_ref.sock.sendto(ack_hs.to_bytes(), client_addr)
                             continue
-                        self._active_transfers[key] = time.time()
 
-                    worker = DownloadWorker(client_addr, packet.file_name, packet.protocol, self.storage, self.logger)
+                        worker = DownloadWorker(client_addr, packet.file_name, packet.protocol, self.storage, self.logger)
+                        self._active_transfers[key] = {'time': time.time(), 'worker': worker}
 
                     def run_download_worker(w, key):
                         try:
