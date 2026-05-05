@@ -6,7 +6,8 @@
 ================================================================================
 
 Terminal 1 - Iniciar topología:
-> sudo python3 src/topo.py
+> cd src
+> sudo python3 topo.py
 
 Abrir xterms de los hosts:
 mininet> xterm h1 h2 h3
